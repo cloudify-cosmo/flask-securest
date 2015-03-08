@@ -19,18 +19,17 @@ from flask.ext.securest.userstores.userstore_manager import UserstoreManager
 AUTH_HEADER_NAME = 'Authorization'
 AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
-SECUREST_SECRET_KEY = 'SECUREST_SECRET_KEY'
-SECUREST_USERSTORE_DRIVER = 'SECUREST_USERSTORE_DRIVER'
-SECUREST_USERSTORE_IDENTIFIER_ATTRIBUTE = \
+SECRET_KEY = 'SECUREST_SECRET_KEY'
+USERSTORE_DRIVER = 'SECUREST_USERSTORE_DRIVER'
+USERSTORE_IDENTIFIER_ATTRIBUTE = \
     'SECUREST_USERSTORE_IDENTIFIER_ATTRIBUTE'
 
 # TODO is this required?
 # PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
 default_config = {
-    'SECUREST_SECRET_KEY': 'SECUREST_SECRET_KEY',
-    'SECUREST_USERSTORE_DRIVER': 'flask_securest.userstores.file:'
-                                 'FileUserstore',
-    'SECUREST_USERSTORE_IDENTIFIER_ATTRIBUTE': 'username',
+    SECRET_KEY: 'secret_key',
+    USERSTORE_DRIVER: 'flask_securest.userstores.file:FileUserstore',
+    USERSTORE_IDENTIFIER_ATTRIBUTE: 'username',
 }
 
 
@@ -58,17 +57,9 @@ class SecuREST(object):
         app.before_request(authenticate_request_if_needed)
         app.after_request(filter_response_if_needed)
 
-    def teardown(self, exception):
-        # TODO log the exception if not None/empty?
-        top = _app_ctx_stack.top
-        if hasattr(top, 'ssl_context'):
-            self.unset_ssl_context()
-
-    def set_ssl_context(self):
-        pass
-
-    def unset_ssl_context(self):
-        pass
+    # TODO perform teardown operations if required
+    # using def teardown(self, exception)
+    # log the exception if not None/empty?
 
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
