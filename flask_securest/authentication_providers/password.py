@@ -58,8 +58,8 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
 
 def _get_crypt_context(password_hash):
     if password_hash not in PASSWORD_SCHEMES:
-        allowed = (', '.join(PASSWORD_SCHEMES[:-1]) + ' and '
-                   + PASSWORD_SCHEMES[-1])
+        allowed = (', '.join(PASSWORD_SCHEMES[:-1]) +
+                   ' and ' + PASSWORD_SCHEMES[-1])
         raise ValueError("Invalid password hash {0}. Allowed values are {1}"
                          .format(password_hash, allowed))
     try:

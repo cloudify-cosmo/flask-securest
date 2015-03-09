@@ -1,6 +1,6 @@
 from collections import namedtuple
 from functools import wraps
-from flask import _app_ctx_stack, current_app
+from flask import current_app
 from flask_restful import Resource
 import utils
 from userstores.abstract_userstore import AbstractUserstore
