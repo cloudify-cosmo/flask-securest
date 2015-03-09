@@ -11,9 +11,9 @@ class AbstractAuthenticationProvider(object):
 
     __metaclass__ = abc.ABCMeta
 
-    @abc.abstractmethod
-    def init(self, app):
-        raise NotImplementedError
+    # @abc.abstractmethod
+    # def init(self, app):
+    #     raise NotImplementedError
 
     @abc.abstractmethod
     def authenticate(self, identifier):

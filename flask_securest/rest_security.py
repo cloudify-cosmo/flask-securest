@@ -1,7 +1,9 @@
 from collections import namedtuple
 from functools import wraps
 from flask import _app_ctx_stack, current_app
+from flask_restful import Resource
 import utils
+from userstores.abstract_userstore import AbstractUserstore
 from authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
 
@@ -12,26 +14,21 @@ from authentication_providers.abstract_authentication_provider \
 from flask import abort, request, _request_ctx_stack
 from flask.ext.securest.models import AnonymousUser
 
-from flask.ext.securest.userstores.userstore_manager import UserstoreManager
-
 
 #: Default name of the auth header (``Authorization``)
 AUTH_HEADER_NAME = 'Authorization'
 AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
 SECRET_KEY = 'SECUREST_SECRET_KEY'
-USERSTORE_DRIVER = 'SECUREST_USERSTORE_DRIVER'
-USERSTORE_IDENTIFIER_ATTRIBUTE = \
-    'SECUREST_USERSTORE_IDENTIFIER_ATTRIBUTE'
 
 # TODO is this required?
 # PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
 default_config = {
-    SECRET_KEY: 'secret_key',
-    USERSTORE_DRIVER: 'flask_securest.userstores.file:FileUserstore',
-    USERSTORE_IDENTIFIER_ATTRIBUTE: 'username',
+    SECRET_KEY: 'secret_key'
 }
 
+SECURED = 'secured'
+VIEW_CLASS = 'view_class'
 
 secured_resources = []
 
@@ -51,9 +48,8 @@ class SecuREST(object):
         for key in default_config.keys():
             app.config.setdefault(key, default_config[key])
 
-        app.teardown_appcontext(self.teardown)
+        # app.teardown_appcontext(self.teardown)
         app.before_first_request(validate_configuration)
-        app.before_first_request(init_providers)
         app.before_request(authenticate_request_if_needed)
         app.after_request(filter_response_if_needed)
 
@@ -64,70 +60,72 @@ class SecuREST(object):
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
+    def userstore_driver(self, userstore):
+        """
+        Registers the given userstore driver.
+        :param userstore: the userstore driver to be set
+        """
+        print '***** validating userstore driver: ', userstore
+        if not isinstance(userstore, AbstractUserstore):
+            raise Exception('userstore driver "{0}" must inherit "{1}"'
+                            .format(utils.get_instance_class_fqn(userstore),
+                                    utils.get_class_fqn(AbstractUserstore)))
+
+        self.app.securest_userstore_driver = userstore
+
     def authentication_provider(self, provider):
         """
         Registers the given authentication method.
-        :param authentication_method: appends the given authentication
-        provider to the list of providers
+        :param provider: appends the given authentication provider to the list
+         of providers
         Note: Pay attention to the order of the registered providers.
-        authentication well attempted on each of the registered providers,
+        authentication will be attempted on each of the registered providers,
         according to their registration order, until successful.
         """
-        print 'validating auth provider: ', provider
+        print '***** validating auth provider: ', provider
         if not isinstance(provider, AbstractAuthenticationProvider):
             raise Exception('authentication provider "{0}" must inherit "{1}"'
                             .format(utils.get_instance_class_fqn(provider),
                                     utils.get_class_fqn(
                                         AbstractAuthenticationProvider)))
 
-        provider.init(self.app)
         self.app.securest_authentication_providers.append(provider)
 
 
-def init_providers():
-    current_app.securest_userstore = \
-        UserstoreManager(current_app).get_userstore_driver()
-
-
 def validate_configuration():
+    if not current_app.securest_userstore_driver:
+        raise Exception('Userstore driver not set')
     if not current_app.securest_authentication_providers:
         raise Exception('authentication methods not set')
 
 
 def authenticate_request_if_needed():
-    # TODO check if the resource is secured or not,
+    from flask import globals
+    g_request = globals.request
+    endpoint = g_request.endpoint
+    print '***** authenticating request to endpoint: ', endpoint
+    view_func = current_app.view_functions.get(endpoint)
 
-    if True:
-        from flask import globals
-        g_request = globals.request
-        print '----- authenticating request...'
-        print '----- g_request.endpoint', g_request.endpoint
-        print '----- secured_resources: ', secured_resources
-        endpoint = g_request.endpoint
-        view_func = current_app.view_functions.get(endpoint)
+    if not view_func:
+        raise Exception('endpoint {0} is not mapped to a REST resource'
+                        .format(endpoint))
 
-        if not view_func:
-            raise Exception('endpoint {0} is not mapped to a REST resource'
-                            .format(endpoint))
+    if not hasattr(view_func, VIEW_CLASS):
+        raise Exception('view_class attribute not found on view func {0}'
+                        .format(view_func))
 
-        global secured_resources
-        if not hasattr(view_func, 'view_class'):
-            print '----- view_class attribute not found on view func {0}'\
-                .format(view_func)
-        else:
-            view_class = getattr(view_func, 'view_class')
-            if utils.get_class_fqn(view_class) in secured_resources:
-                print '----- accessing secured resource {0}, attempting ' \
-                      'authentication'.format(utils.get_class_fqn(view_class))
-                # accessing a secured resource, must authenticate
-                authenticate_request()
-            else:
-                print '----- accessing open resource {0}, not authenticating'\
-                    .format(utils.get_class_fqn(view_class))
+    resource_class = getattr(view_func, VIEW_CLASS)
+    if hasattr(resource_class, SECURED) and getattr(resource_class, SECURED):
+        print '***** accessing secured resource {0}, attempting ' \
+              'authentication'.format(utils.get_class_fqn(resource_class))
+        authenticate_request()
+    else:
+        print '***** accessing open resource {0}, not authenticating'\
+            .format(utils.get_class_fqn(resource_class))
 
 
-def secure(resource_class):
-    print '----- adding resource to secured_resources: ', \
+def secured(resource_class):
+    print '***** adding resource to secured_resources: ', \
         utils.get_class_fqn(resource_class)
     global secured_resources
     secured_resources.append(utils.get_class_fqn(resource_class))
@@ -151,22 +149,19 @@ def is_authenticated():
 
 
 def filter_results(results):
+    print '***** filtering results'
     return results
 
 
-def login_required(func):
+def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        try:
-            if is_authenticated():
-                result = func(*args, **kwargs)
-                return filter_results(result)
-            else:
-                handle_unauthorized_user()
-        except Exception:
-            # TODO decide if this mean user is unauthorized or a
-            # TODO different exception ('authentication check failed')
-            # TODO log this
+        if is_authenticated():
+            print '***** user is authenticated, continuing to resource'
+            result = func(*args, **kwargs)
+            return filter_results(result)
+        else:
+            print '***** user not authorized'
             handle_unauthorized_user()
     return wrapper
 
@@ -204,7 +199,7 @@ def get_auth_info_from_request():
 
     if auth_header:
         auth_header = auth_header.replace('Basic ', '', 1)
-        print '----- GOT AUTH_HEADER: ', auth_header
+        print '***** GOT AUTH_HEADER: ', auth_header
         try:
             from itsdangerous import base64_decode
             api_key = base64_decode(auth_header)
@@ -239,9 +234,9 @@ def authenticate(authentication_providers, auth_info):
     user = None
     for auth_provider in authentication_providers:
         try:
-            print '***** userstore is: ', current_app.securest_userstore
-            user = auth_provider.authenticate(auth_info,
-                                              current_app.securest_userstore)
+            print '***** userstore is: ', current_app.securest_userstore_driver
+            user = auth_provider.authenticate(
+                auth_info, current_app.securest_userstore_driver)
             break
         except Exception as e:
             #  TODO use the caught exception?
@@ -252,3 +247,8 @@ def authenticate(authentication_providers, auth_info):
         raise Exception('Unauthorized')
 
     return user
+
+
+class SecuredResource(Resource):
+    secured = True
+    method_decorators = [auth_required]

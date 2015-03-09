@@ -6,7 +6,7 @@ from abstract_authentication_provider import AbstractAuthenticationProvider
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
     def __init__(self):
-        print '----- INITING TokenAuthenticator'
+        print '***** INITING TokenAuthenticator'
         self.secret_key = None
 
     def init(self, app):

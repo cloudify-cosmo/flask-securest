@@ -3,7 +3,8 @@ from abstract_authentication_provider import AbstractAuthenticationProvider
 
 
 DEFAULT_PASSWORD_HASH = 'plaintext'
-DEFAULT_PASSWORD_SCHEMES = [
+
+PASSWORD_SCHEMES = [
     'bcrypt',
     'des_crypt',
     'pbkdf2_sha256',
@@ -12,17 +13,15 @@ DEFAULT_PASSWORD_SCHEMES = [
     'sha512_crypt',
     'plaintext'
     ]
-DEFAULT_DEPRECATED_PASSWORD_SCHEMES = ['auto']
+
+DEPRECATED_PASSWORD_SCHEMES = ['auto']
 
 
 class PasswordAuthenticator(AbstractAuthenticationProvider):
 
-    def __init__(self):
-        print '----- INITING PasswordAuthenticator'
-        self.crypt_ctx = None
-
-    def init(self, app):
-        self.crypt_ctx = _get_crypt_context(app)
+    def __init__(self, password_hash=DEFAULT_PASSWORD_HASH):
+        print '***** INITING PasswordAuthenticator'
+        self.crypt_ctx = _get_crypt_context(password_hash)
 
     def authenticate(self, auth_info, userstore):
         print '***** starting password authentication, user and password: ', \
@@ -57,21 +56,18 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
         return user
 
 
-def _get_crypt_context(app):
-    pw_hash = app.config.get('PASSWORD_HASH', DEFAULT_PASSWORD_HASH)
-    schemes = app.config.get('PASSWORD_SCHEMES', DEFAULT_PASSWORD_SCHEMES)
-    deprecated = app.config.get('DEPRECATED_PASSWORD_SCHEMES',
-                                DEFAULT_DEPRECATED_PASSWORD_SCHEMES)
-    if pw_hash not in schemes:
-        allowed = (', '.join(schemes[:-1]) + ' and ' + schemes[-1])
-        raise ValueError("Invalid hash scheme {0}. Allowed values are {1}"
-                         .format(pw_hash, allowed))
+def _get_crypt_context(password_hash):
+    if password_hash not in PASSWORD_SCHEMES:
+        allowed = (', '.join(PASSWORD_SCHEMES[:-1]) + ' and '
+                   + PASSWORD_SCHEMES[-1])
+        raise ValueError("Invalid password hash {0}. Allowed values are {1}"
+                         .format(password_hash, allowed))
     try:
-        crypt_ctx = CryptContext(schemes=schemes,
-                                 default=pw_hash,
-                                 deprecated=deprecated)
+        crypt_ctx = CryptContext(schemes=PASSWORD_SCHEMES,
+                                 default=password_hash,
+                                 deprecated=DEPRECATED_PASSWORD_SCHEMES)
     except Exception as e:
         print 'Failed to initialize password crypt context: ', e
-        raise e
+        raise
 
     return crypt_ctx

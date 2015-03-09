@@ -21,16 +21,8 @@ user_repo = [
 
 class FileUserstore(AbstractUserstore):
 
-    def __init__(self):
-        print '***** INITING class FileUserstore with no args'
-        self._identifying_attribute = None
-
-    @property
-    def identifying_attribute(self):
-        return self._identifying_attribute
-
-    @identifying_attribute.setter
-    def identifying_attribute(self, identifying_attribute):
+    def __init__(self, identifying_attribute):
+        print '***** INITING class FileUserstore with identifying_attribute: ', identifying_attribute
         self._identifying_attribute = identifying_attribute
 
     def get_user(self, user_identifier):
