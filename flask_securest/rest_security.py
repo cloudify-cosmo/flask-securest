@@ -105,28 +105,34 @@ def validate_configuration():
 
 
 def authenticate_request_if_needed():
-    from flask import globals
-    g_request = globals.request
-    endpoint = g_request.endpoint
-    print '***** authenticating request to endpoint: ', endpoint
-    view_func = current_app.view_functions.get(endpoint)
 
-    if not view_func:
-        raise Exception('endpoint {0} is not mapped to a REST resource'
-                        .format(endpoint))
-
-    if not hasattr(view_func, VIEW_CLASS):
-        raise Exception('view_class attribute not found on view func {0}'
-                        .format(view_func))
-
-    resource_class = getattr(view_func, VIEW_CLASS)
-    if hasattr(resource_class, SECURED) and getattr(resource_class, SECURED):
-        print '***** accessing secured resource {0}, attempting ' \
-              'authentication'.format(utils.get_class_fqn(resource_class))
-        authenticate_request()
+    if not current_app.config.get(SECURED_MODE):
+        print '***** secured mode is off, not setting user'
     else:
-        print '***** accessing open resource {0}, not authenticating'\
-            .format(utils.get_class_fqn(resource_class))
+        from flask import globals
+        g_request = globals.request
+        endpoint = g_request.endpoint
+        print '***** authenticating request to endpoint: ', endpoint
+        view_func = current_app.view_functions.get(endpoint)
+
+        if not view_func:
+            raise Exception('endpoint {0} is not mapped to a REST resource'
+                            .format(endpoint))
+
+        if not hasattr(view_func, VIEW_CLASS):
+            raise Exception('view_class attribute not found on view func {0}'
+                            .format(view_func))
+
+        resource_class = getattr(view_func, VIEW_CLASS)
+        if hasattr(resource_class, SECURED) \
+                and getattr(resource_class, SECURED):
+            print '***** accessing secured resource {0}, attempting ' \
+                  'authentication'.format(utils.get_class_fqn(resource_class))
+            authenticate_request()
+        else:
+            print '***** accessing open resource {0}, setting anonymous user'\
+                .format(utils.get_class_fqn(resource_class))
+            set_anonymous_user()
 
 
 def secured(resource_class):
@@ -234,10 +240,14 @@ def authenticate_request():
         user = authenticate(current_app.securest_authentication_providers,
                             auth_info)
     except Exception:
-        user = AnonymousUser()
+        print '***** authentication failed, setting anonymous user'
+        set_anonymous_user()
+    else:
+        _request_ctx_stack.top.user = user
 
-    # TODO is the place to keep the loaded user? flask login does so.
-    _request_ctx_stack.top.user = user
+
+def set_anonymous_user():
+    _request_ctx_stack.top.user = AnonymousUser()
 
 
 def authenticate(authentication_providers, auth_info):
