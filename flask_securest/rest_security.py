@@ -20,6 +20,7 @@ AUTH_HEADER_NAME = 'Authorization'
 AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
 SECRET_KEY = 'SECUREST_SECRET_KEY'
+SECURED_MODE = 'SECUREST_MODE'
 
 # TODO is this required?
 # PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
@@ -44,6 +45,10 @@ class SecuREST(object):
             self.init_app(app)
 
     def init_app(self, app):
+
+        app.config[SECURED_MODE] = True
+
+        # TODO is this required? maybe can be avoided
         # setting default security settings
         for key in default_config.keys():
             app.config.setdefault(key, default_config[key])
@@ -156,13 +161,18 @@ def filter_results(results):
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if is_authenticated():
-            print '***** user is authenticated, continuing to resource'
-            result = func(*args, **kwargs)
-            return filter_results(result)
+        if current_app.config.get(SECURED_MODE):
+            if is_authenticated():
+                print '***** user is authenticated, continuing to resource'
+                result = func(*args, **kwargs)
+                return filter_results(result)
+            else:
+                print '***** user not authorized'
+                handle_unauthorized_user()
         else:
-            print '***** user not authorized'
-            handle_unauthorized_user()
+            # rest security turned off
+            print '***** rest security turned off'
+            return func(*args, **kwargs)
     return wrapper
 
 
