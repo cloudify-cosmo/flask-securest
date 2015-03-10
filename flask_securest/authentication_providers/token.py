@@ -5,12 +5,9 @@ from abstract_authentication_provider import AbstractAuthenticationProvider
 
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
-    def __init__(self):
+    def __init__(self, secret_key):
         print '***** INITING TokenAuthenticator'
-        self.secret_key = None
-
-    def init(self, app):
-        self.secret_key = app.config['SECRET_KEY']
+        self._secret_key = secret_key
 
     def authenticate(self, auth_info, userstore):
         print '***** attempting to authenticate using TokenAuthenticator'
@@ -21,7 +18,7 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
         if not token:
             raise Exception('token is missing or empty')
 
-        serializer = URLSafeTimedSerializer(self.secret_key)
+        serializer = URLSafeTimedSerializer(self._secret_key)
 
         try:
             print '***** attempting to deserialize the token'
