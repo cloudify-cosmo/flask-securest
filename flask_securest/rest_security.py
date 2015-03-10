@@ -24,9 +24,6 @@ SECURED_MODE = 'SECUREST_MODE'
 
 # TODO is this required?
 # PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
-default_config = {
-    SECRET_KEY: 'secret_key'
-}
 
 SECURED = 'secured'
 VIEW_CLASS = 'view_class'
@@ -45,13 +42,7 @@ class SecuREST(object):
             self.init_app(app)
 
     def init_app(self, app):
-
         app.config[SECURED_MODE] = True
-
-        # TODO is this required? maybe can be avoided
-        # setting default security settings
-        for key in default_config.keys():
-            app.config.setdefault(key, default_config[key])
 
         # app.teardown_appcontext(self.teardown)
         app.before_first_request(validate_configuration)
@@ -70,11 +61,13 @@ class SecuREST(object):
         Registers the given userstore driver.
         :param userstore: the userstore driver to be set
         """
-        print '***** validating userstore driver: ', userstore
         if not isinstance(userstore, AbstractUserstore):
-            raise Exception('userstore driver "{0}" must inherit "{1}"'
-                            .format(utils.get_instance_class_fqn(userstore),
-                                    utils.get_class_fqn(AbstractUserstore)))
+            err_msg = 'userstore driver "{0}" must inherit "{1}"'.format(
+                utils.get_instance_class_fqn(userstore),
+                utils.get_class_fqn(AbstractUserstore))
+            # TODO is logging required here? will the raising be logged anyway?
+            self.app.logger.error(err_msg)
+            raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
 
@@ -87,12 +80,13 @@ class SecuREST(object):
         authentication will be attempted on each of the registered providers,
         according to their registration order, until successful.
         """
-        print '***** validating auth provider: ', provider
         if not isinstance(provider, AbstractAuthenticationProvider):
-            raise Exception('authentication provider "{0}" must inherit "{1}"'
-                            .format(utils.get_instance_class_fqn(provider),
-                                    utils.get_class_fqn(
-                                        AbstractAuthenticationProvider)))
+            err_msg = 'authentication provider "{0}" must inherit "{1}"'\
+                .format(utils.get_instance_class_fqn(provider),
+                        utils.get_class_fqn(AbstractAuthenticationProvider))
+            # TODO is logging required here? will the raising be logged anyway?
+            self.app.logger(err_msg)
+            raise Exception(err_msg)
 
         self.app.securest_authentication_providers.append(provider)
 
@@ -107,12 +101,13 @@ def validate_configuration():
 def authenticate_request_if_needed():
 
     if not current_app.config.get(SECURED_MODE):
-        print '***** secured mode is off, not setting user'
+        current_app.logger.debug('secured mode is off, not setting user')
     else:
         from flask import globals
         g_request = globals.request
         endpoint = g_request.endpoint
-        print '***** authenticating request to endpoint: ', endpoint
+        current_app.logger.debug('authenticating request to endpoint: {0}'
+                                 .format(endpoint))
         view_func = current_app.view_functions.get(endpoint)
 
         if not view_func:
@@ -126,22 +121,25 @@ def authenticate_request_if_needed():
         resource_class = getattr(view_func, VIEW_CLASS)
         if hasattr(resource_class, SECURED) \
                 and getattr(resource_class, SECURED):
-            print '***** accessing secured resource {0}, attempting ' \
-                  'authentication'.format(utils.get_class_fqn(resource_class))
+            current_app.logger.debug('accessing secured resource {0}, '
+                                     'attempting authentication'.format(
+                                         utils.get_class_fqn(resource_class)))
             authenticate_request()
         else:
-            print '***** accessing open resource {0}, setting anonymous user'\
-                .format(utils.get_class_fqn(resource_class))
+            current_app.logger.debug('accessing open resource {0}, setting '
+                                     'anonymous user'.format(
+                                         utils.get_class_fqn(resource_class)))
             set_anonymous_user()
 
-
+'''
 def secured(resource_class):
-    print '***** adding resource to secured_resources: ', \
-        utils.get_class_fqn(resource_class)
+    current_app.logger.debug('adding resource to secured_resources: {0}'
+                             .format(utils.get_class_fqn(resource_class)))
     global secured_resources
     secured_resources.append(utils.get_class_fqn(resource_class))
 
     return resource_class
+'''
 
 
 def filter_response_if_needed(response=None):
@@ -150,7 +148,7 @@ def filter_response_if_needed(response=None):
 
 def is_authenticated():
     authenticated = False
-    # TODO is there a nicer way to do it?
+    # TODO is there a nicer way to do this?
     request_ctx = _request_ctx_stack.top
     if hasattr(request_ctx, 'user') and \
             not isinstance(request_ctx.user, AnonymousUser):
@@ -160,7 +158,6 @@ def is_authenticated():
 
 
 def filter_results(results):
-    print '***** filtering results'
     return results
 
 
@@ -169,15 +166,13 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if current_app.config.get(SECURED_MODE):
             if is_authenticated():
-                print '***** user is authenticated, continuing to resource'
                 result = func(*args, **kwargs)
                 return filter_results(result)
             else:
-                print '***** user not authorized'
+                current_app.logger.info('handling unauthorized user')
                 handle_unauthorized_user()
         else:
             # rest security turned off
-            print '***** rest security turned off'
             return func(*args, **kwargs)
     return wrapper
 
@@ -215,7 +210,7 @@ def get_auth_info_from_request():
 
     if auth_header:
         auth_header = auth_header.replace('Basic ', '', 1)
-        print '***** GOT AUTH_HEADER: ', auth_header
+        current_app.logger.debug('found auth header on request')
         try:
             from itsdangerous import base64_decode
             api_key = base64_decode(auth_header)
@@ -239,8 +234,11 @@ def authenticate_request():
     try:
         user = authenticate(current_app.securest_authentication_providers,
                             auth_info)
+        # TODO make sure this doesn't print all user props, just the username
+        current_app.logger.debug('authenticated user: {0}'.format(user))
     except Exception:
-        print '***** authentication failed, setting anonymous user'
+        current_app.logger.warning('authentication failed, setting anonymous '
+                                   'user')
         set_anonymous_user()
     else:
         _request_ctx_stack.top.user = user
@@ -254,13 +252,15 @@ def authenticate(authentication_providers, auth_info):
     user = None
     for auth_provider in authentication_providers:
         try:
-            print '***** userstore is: ', current_app.securest_userstore_driver
-            user = auth_provider.authenticate(
-                auth_info, current_app.securest_userstore_driver)
+            userstore_driver = current_app.securest_userstore_driver
+            current_app.logger.debug('authenticating vs userstore: {0}'
+                                     .format(userstore_driver))
+            user = auth_provider.authenticate(auth_info, userstore_driver)
             break
         except Exception as e:
-            #  TODO use the caught exception?
-            print '***** caught authentication exception: ', e.message
+            #  TODO use the caught exception? or better hide the error?
+            current_app.logger.debug('caught authentication exception: {0}'
+                                     .format(e.message))
             continue  # try the next authentication method until successful
 
     if not user:

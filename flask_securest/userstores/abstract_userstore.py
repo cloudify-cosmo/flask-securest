@@ -11,10 +11,6 @@ class AbstractUserstore(object):
 
     __metaclass__ = abc.ABCMeta
 
-    # @property
-    # def identifying_attribute(self):
-    #     raise NotImplementedError
-
     @abc.abstractmethod
     def get_user(self, identifier):
         raise NotImplementedError
