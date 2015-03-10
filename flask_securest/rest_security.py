@@ -2,7 +2,6 @@ from collections import namedtuple
 from functools import wraps
 from flask import current_app
 from flask_restful import Resource
-import utils
 from userstores.abstract_userstore import AbstractUserstore
 from authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
@@ -56,22 +55,22 @@ class SecuREST(object):
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
-    def userstore_driver(self, userstore):
+    def set_userstore_driver(self, userstore):
         """
         Registers the given userstore driver.
         :param userstore: the userstore driver to be set
         """
         if not isinstance(userstore, AbstractUserstore):
             err_msg = 'userstore driver "{0}" must inherit "{1}"'.format(
-                utils.get_instance_class_fqn(userstore),
-                utils.get_class_fqn(AbstractUserstore))
+                get_instance_class_fqn(userstore),
+                get_class_fqn(AbstractUserstore))
             # TODO is logging required here? will the raising be logged anyway?
             self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
 
-    def authentication_provider(self, provider):
+    def register_authentication_provider(self, provider):
         """
         Registers the given authentication method.
         :param provider: appends the given authentication provider to the list
@@ -82,8 +81,8 @@ class SecuREST(object):
         """
         if not isinstance(provider, AbstractAuthenticationProvider):
             err_msg = 'authentication provider "{0}" must inherit "{1}"'\
-                .format(utils.get_instance_class_fqn(provider),
-                        utils.get_class_fqn(AbstractAuthenticationProvider))
+                .format(get_instance_class_fqn(provider),
+                        get_class_fqn(AbstractAuthenticationProvider))
             # TODO is logging required here? will the raising be logged anyway?
             self.app.logger(err_msg)
             raise Exception(err_msg)
@@ -123,12 +122,12 @@ def authenticate_request_if_needed():
                 and getattr(resource_class, SECURED):
             current_app.logger.debug('accessing secured resource {0}, '
                                      'attempting authentication'.format(
-                                         utils.get_class_fqn(resource_class)))
+                                         get_class_fqn(resource_class)))
             authenticate_request()
         else:
             current_app.logger.debug('accessing open resource {0}, setting '
                                      'anonymous user'.format(
-                                         utils.get_class_fqn(resource_class)))
+                                         get_class_fqn(resource_class)))
             set_anonymous_user()
 
 '''
@@ -267,6 +266,15 @@ def authenticate(authentication_providers, auth_info):
         raise Exception('Unauthorized')
 
     return user
+
+
+def get_instance_class_fqn(instance):
+    instance_cls = instance.__class__
+    return instance_cls.__module__ + '.' + instance_cls.__name__
+
+
+def get_class_fqn(clazz):
+    return clazz.__module__ + '.' + clazz.__name__
 
 
 class SecuredResource(Resource):
