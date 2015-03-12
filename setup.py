@@ -18,7 +18,9 @@ setup(
     # long_description=__doc__,
     # if you would be using a package instead use packages instead
     # of py_modules:
-    packages=['flask_securest'],
+    packages=['flask_securest',
+              'flask_securest.authentication_providers',
+              'flask_securest.userstores'],
     # zip_safe=False,
     # include_package_data=True,
     # platforms='any',
