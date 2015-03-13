@@ -27,7 +27,8 @@ setup(
     install_requires=[
         'Flask>=0.9',
         'Flask-RESTful',
-        'passlib>=1.6.2'
+        'passlib>=1.6.2',
+        'itsdangerous>=0.24',
     ],
     classifiers=[
         'Environment :: Web Environment',
