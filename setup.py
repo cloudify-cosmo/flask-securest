@@ -21,6 +21,9 @@ setup(
     packages=['flask_securest',
               'flask_securest.authentication_providers',
               'flask_securest.userstores'],
+    package_data={
+        'flask_securest': ['resources/users.yaml'],
+        },
     # zip_safe=False,
     # include_package_data=True,
     # platforms='any',
