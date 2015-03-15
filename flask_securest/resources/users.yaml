@@ -1,0 +1,24 @@
+user1:
+  username: user1
+  password: pass1
+  email: user1@securest.com
+  roles:
+   - admin
+   - viewer
+user2:
+  username: user2
+  password: pass2
+  email: user2@securest.com
+  roles:
+   - admin
+user3:
+  username: user3
+  password: pass3
+  email: user3@securest.com
+  roles:
+   - viewer
+user4:
+  username: user4
+  password: pass4
+  email: user4@securest.com
+  roles:

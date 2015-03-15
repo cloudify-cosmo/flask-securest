@@ -1,3 +1,5 @@
+import os.path
+import yaml
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
 from flask.ext.securest.models import User, Role
 
@@ -6,25 +8,22 @@ PASSWORD = 'password'
 EMAIL = 'email'
 ROLES = 'roles'
 
-# TODO read this from a file:
-user_repo = [
-    {USERNAME: 'user1', PASSWORD: 'pass1', EMAIL: 'user1@cloudify.org',
-     ROLES: ('admin', 'viewer')},
-    {USERNAME: 'user2', PASSWORD: 'pass2', EMAIL: 'user2@cloudify.org',
-     ROLES: ('admin',)},
-    {USERNAME: 'user3', PASSWORD: 'pass3', EMAIL: 'user3@cloudify.org',
-     ROLES: ('viewer',)},
-    {USERNAME: 'user4', PASSWORD: 'pass4', EMAIL: 'user4@cloudify.org',
-     ROLES: ()},
-]
+RESOURCES_PATH = os.path.dirname(__file__) + '/../resources'
 
 
 class FileUserstore(AbstractUserstore):
 
-    def __init__(self, identifying_attribute):
-        print '***** INITING class FileUserstore with identifying_attr: ',\
-            identifying_attribute
+    def __init__(self, userstore_file, identifying_attribute):
+        print '***** INITING class FileUserstore with identifying_attr {0}' \
+              ' and file_location {1}'.format(identifying_attribute,
+                                              userstore_file)
         self._identifying_attribute = identifying_attribute
+        abs_file_location = RESOURCES_PATH + "/" + userstore_file
+        if not os.path.isfile(abs_file_location):
+            raise ValueError('file not found: {0}'.format(abs_file_location))
+
+        with open(abs_file_location) as users_file:
+            self.users = yaml.load(users_file.read())
 
     def get_user(self, user_identifier):
         user_obj = None
@@ -33,12 +32,9 @@ class FileUserstore(AbstractUserstore):
             .format(self._identifying_attribute, user_identifier)
 
         if not user_identifier:
-            raise Exception('user identifier is missing or empty, '
-                            'unable to get a user object')
+            raise ValueError('user identifier is missing or empty')
 
-        for user_entry in user_repo:
-            print '***** user identifier value: ', \
-                user_entry.get(self._identifying_attribute)
+        for user_entry in self.users.itervalues():
             if user_entry.get(self._identifying_attribute) == user_identifier:
                 print '***** found user!'
                 # a matching user was found, return as a User object
