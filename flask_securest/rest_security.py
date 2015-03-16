@@ -52,6 +52,7 @@ class SecuREST(object):
     # using def teardown(self, exception)
     # log the exception if not None/empty?
 
+    # TODO make property
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
@@ -99,7 +100,7 @@ def validate_configuration():
 
 def authenticate_request_if_needed():
 
-    if True:
+    if not current_app.config.get(SECURED_MODE):
         current_app.logger.debug('secured mode is off, not setting user')
     else:
         from flask import globals
