@@ -77,10 +77,10 @@ class SecuREST(object):
         :param userstore: the userstore driver to be set
         """
         if not isinstance(userstore, AbstractUserstore):
-            err_msg = 'userstore driver "{0}" must inherit "{1}"'.format(
-                get_instance_class_fqn(userstore),
-                get_class_fqn(AbstractUserstore))
-            # TODO is logging required here? will the raising be logged anyway?
+            err_msg = 'failed to register userstore driver "{0}", Error: ' \
+                      'driver does not inherit "{1}"'\
+                .format(get_instance_class_fqn(userstore),
+                        get_class_fqn(AbstractUserstore))
             self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
@@ -91,16 +91,16 @@ class SecuREST(object):
         Registers the given authentication method.
         :param provider: appends the given authentication provider to the list
          of providers
-        Note: Pay attention to the order of the registered providers.
+        NOTE: Pay attention to the order of the registered providers!
         authentication will be attempted on each of the registered providers,
         according to their registration order, until successful.
         """
         if not isinstance(provider, AbstractAuthenticationProvider):
-            err_msg = 'authentication provider "{0}" must inherit "{1}"'\
+            err_msg = 'failed to register authentication provider "{0}", ' \
+                      'Error: provider does not inherit "{1}"'\
                 .format(get_instance_class_fqn(provider),
                         get_class_fqn(AbstractAuthenticationProvider))
-            # TODO is logging required here? will the raising be logged anyway?
-            self.app.logger(err_msg)
+            self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
         self.app.securest_authentication_providers.append(provider)
@@ -121,16 +121,14 @@ def authenticate_request_if_needed():
         from flask import globals
         g_request = globals.request
         endpoint = g_request.endpoint
-        current_app.logger.debug('authenticating request to endpoint: {0}'
-                                 .format(endpoint))
         view_func = current_app.view_functions.get(endpoint)
 
         if not view_func:
-            raise Exception('endpoint {0} is not mapped to a REST resource'
+            raise Exception('endpoint "{0}" is not mapped to a REST resource'
                             .format(endpoint))
 
         if not hasattr(view_func, VIEW_CLASS):
-            raise Exception('view_class attribute not found on view func {0}'
+            raise Exception('view_class attribute not found on resource "{0}"'
                             .format(view_func))
 
         resource_class = getattr(view_func, VIEW_CLASS)
@@ -184,7 +182,8 @@ def auth_required(func):
                 result = func(*args, **kwargs)
                 return filter_results(result)
             else:
-                current_app.logger.info('handling unauthorized user')
+                current_app.logger.debug('blocked unauthorized user access to:'
+                                         ' {0}'.format(func))
                 handle_unauthorized_user()
         else:
             # rest security turned off
@@ -225,7 +224,6 @@ def get_auth_info_from_request():
 
     if auth_header:
         auth_header = auth_header.replace('Basic ', '', 1)
-        current_app.logger.debug('found auth header on request')
         try:
             from itsdangerous import base64_decode
             api_key = base64_decode(auth_header)
@@ -249,11 +247,8 @@ def authenticate_request():
     try:
         user = authenticate(current_app.securest_authentication_providers,
                             auth_info)
-        # TODO make sure this doesn't print all user props, just the username
-        current_app.logger.debug('authenticated user: {0}'.format(user))
     except Exception:
-        current_app.logger.warning('authentication failed, setting anonymous '
-                                   'user')
+        current_app.logger.info('authentication failed, using anonymous user')
         set_anonymous_user()
     else:
         _request_ctx_stack.top.user = user
@@ -272,10 +267,10 @@ def authenticate(authentication_providers, auth_info):
                                      .format(userstore_driver))
             user = auth_provider.authenticate(auth_info, userstore_driver)
             break
-        except Exception as e:
-            #  TODO use the caught exception? or better hide the error?
-            current_app.logger.debug('caught authentication exception: {0}'
-                                     .format(e.message))
+        except Exception:
+            # logging a general error, not to expose account info
+            current_app.logger.debug('failed to authenticate user using {0}'
+                                     .format(auth_provider))
             continue  # try the next authentication method until successful
 
     if not user:
