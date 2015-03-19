@@ -34,6 +34,7 @@ AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
 SECRET_KEY = 'SECUREST_SECRET_KEY'
 SECURED_MODE = 'SECUREST_MODE'
+BYPASS_HANDLER = 'BYPASS_HANDLER'
 
 # TODO is this required?
 # PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
@@ -46,16 +47,18 @@ secured_resources = []
 
 class SecuREST(object):
 
-    def __init__(self, app=None):
+    def __init__(self, app=None, request_security_bypass_handler=None):
         self.app = app
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
+        self.request_security_bypass_handler = request_security_bypass_handler
 
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         app.config[SECURED_MODE] = True
+        app.config[BYPASS_HANDLER] = self.request_security_bypass_handler
 
         # app.teardown_appcontext(self.teardown)
         app.before_first_request(validate_configuration)
@@ -133,7 +136,7 @@ def filter_results(results):
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if current_app.config.get(SECURED_MODE):
+        if _is_secured_context():
             try:
                 auth_info = get_auth_info_from_request()
                 authenticate(current_app.securest_authentication_providers,
@@ -148,6 +151,12 @@ def auth_required(func):
             # rest security turned off
             return func(*args, **kwargs)
     return wrapper
+
+
+def _is_secured_context():
+    return current_app.config.get(SECURED_MODE) and not \
+        (current_app.config[BYPASS_HANDLER] and
+         current_app.config[BYPASS_HANDLER](request))
 
 
 def handle_unauthorized_user():
