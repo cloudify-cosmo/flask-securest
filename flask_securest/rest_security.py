@@ -25,8 +25,7 @@ from authentication_providers.abstract_authentication_provider \
 # TODO decide which of the below 'abort' is better?
 # TODO the werkzeug abort is referred to by flask's
 # from werkzeug.exceptions import abort
-from flask import abort, request, _request_ctx_stack
-from flask.ext.securest.models import AnonymousUser
+from flask import abort, request
 
 
 #: Default name of the auth header (``Authorization``)
@@ -60,7 +59,6 @@ class SecuREST(object):
 
         # app.teardown_appcontext(self.teardown)
         app.before_first_request(validate_configuration)
-        app.before_request(authenticate_request_if_needed)
         app.after_request(filter_response_if_needed)
 
     # TODO perform teardown operations if required
@@ -113,37 +111,6 @@ def validate_configuration():
         raise Exception('authentication methods not set')
 
 
-def authenticate_request_if_needed():
-
-    if not current_app.config.get(SECURED_MODE):
-        current_app.logger.debug('secured mode is off, not setting user')
-    else:
-        from flask import globals
-        g_request = globals.request
-        endpoint = g_request.endpoint
-        view_func = current_app.view_functions.get(endpoint)
-
-        if not view_func:
-            raise Exception('endpoint "{0}" is not mapped to a REST resource'
-                            .format(endpoint))
-
-        if not hasattr(view_func, VIEW_CLASS):
-            raise Exception('view_class attribute not found on resource "{0}"'
-                            .format(view_func))
-
-        resource_class = getattr(view_func, VIEW_CLASS)
-        if hasattr(resource_class, SECURED) \
-                and getattr(resource_class, SECURED):
-            current_app.logger.debug('accessing secured resource {0}, '
-                                     'attempting authentication'.format(
-                                         get_class_fqn(resource_class)))
-            authenticate_request()
-        else:
-            current_app.logger.debug('accessing open resource {0}, setting '
-                                     'anonymous user'.format(
-                                         get_class_fqn(resource_class)))
-            set_anonymous_user()
-
 '''
 def secured(resource_class):
     current_app.logger.debug('adding resource to secured_resources: {0}'
@@ -159,17 +126,6 @@ def filter_response_if_needed(response=None):
     return response
 
 
-def is_authenticated():
-    authenticated = False
-    # TODO is there a nicer way to do this?
-    request_ctx = _request_ctx_stack.top
-    if hasattr(request_ctx, 'user') and \
-            not isinstance(request_ctx.user, AnonymousUser):
-        authenticated = True
-
-    return authenticated
-
-
 def filter_results(results):
     return results
 
@@ -178,10 +134,13 @@ def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if current_app.config.get(SECURED_MODE):
-            if is_authenticated():
+            try:
+                auth_info = get_auth_info_from_request()
+                authenticate(current_app.securest_authentication_providers,
+                             auth_info)
                 result = func(*args, **kwargs)
                 return filter_results(result)
-            else:
+            except Exception:
                 current_app.logger.debug('blocked unauthorized user access to:'
                                          ' {0}'.format(func))
                 handle_unauthorized_user()
@@ -239,23 +198,6 @@ def get_auth_info_from_request():
                            ['user_id', 'password', 'token'])
 
     return auth_info(user_id, password, token)
-
-
-def authenticate_request():
-    auth_info = get_auth_info_from_request()
-
-    try:
-        user = authenticate(current_app.securest_authentication_providers,
-                            auth_info)
-    except Exception:
-        current_app.logger.info('authentication failed, using anonymous user')
-        set_anonymous_user()
-    else:
-        _request_ctx_stack.top.user = user
-
-
-def set_anonymous_user():
-    _request_ctx_stack.top.user = AnonymousUser()
 
 
 def authenticate(authentication_providers, auth_info):
