@@ -34,7 +34,6 @@ AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
 SECRET_KEY = 'SECUREST_SECRET_KEY'
 SECURED_MODE = 'SECUREST_MODE'
-BYPASS_HANDLER = 'BYPASS_HANDLER'
 
 # TODO is this required?
 # PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
@@ -47,18 +46,17 @@ secured_resources = []
 
 class SecuREST(object):
 
-    def __init__(self, app=None, request_security_bypass_handler=None):
+    def __init__(self, app=None):
         self.app = app
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
-        self.request_security_bypass_handler = request_security_bypass_handler
+        self.app.request_security_bypass_handler = None
 
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         app.config[SECURED_MODE] = True
-        app.config[BYPASS_HANDLER] = self.request_security_bypass_handler
 
         # app.teardown_appcontext(self.teardown)
         app.before_first_request(validate_configuration)
@@ -71,6 +69,14 @@ class SecuREST(object):
     # TODO make property
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
+
+    @property
+    def request_security_bypass_handler(self):
+        return self.app.request_security_bypass_handler
+
+    @request_security_bypass_handler.setter
+    def request_security_bypass_handler(self, value):
+        self.app.request_security_bypass_handler = value
 
     def set_userstore_driver(self, userstore):
         """
@@ -136,7 +142,7 @@ def filter_results(results):
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if _is_secured_context():
+        if _is_secured_request_context():
             try:
                 auth_info = get_auth_info_from_request()
                 authenticate(current_app.securest_authentication_providers,
@@ -153,10 +159,10 @@ def auth_required(func):
     return wrapper
 
 
-def _is_secured_context():
+def _is_secured_request_context():
     return current_app.config.get(SECURED_MODE) and not \
-        (current_app.config[BYPASS_HANDLER] and
-         current_app.config[BYPASS_HANDLER](request))
+        (current_app.request_security_bypass_handler and
+         current_app.request_security_bypass_handler(request))
 
 
 def handle_unauthorized_user():
