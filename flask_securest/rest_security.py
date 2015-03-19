@@ -26,7 +26,6 @@ from authentication_providers.abstract_authentication_provider \
 # TODO the werkzeug abort is referred to by flask's
 # from werkzeug.exceptions import abort
 from flask import abort, request
-from flask.ext.securest.models import AnonymousUser
 
 
 #: Default name of the auth header (``Authorization``)
