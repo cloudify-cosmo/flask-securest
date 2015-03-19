@@ -25,7 +25,7 @@ from authentication_providers.abstract_authentication_provider \
 # TODO decide which of the below 'abort' is better?
 # TODO the werkzeug abort is referred to by flask's
 # from werkzeug.exceptions import abort
-from flask import abort, request, _request_ctx_stack
+from flask import abort, request
 from flask.ext.securest.models import AnonymousUser
 
 
@@ -127,17 +127,6 @@ def filter_response_if_needed(response=None):
     return response
 
 
-def is_authenticated():
-    authenticated = False
-    # TODO is there a nicer way to do this?
-    request_ctx = _request_ctx_stack.top
-    if hasattr(request_ctx, 'user') and \
-            not isinstance(request_ctx.user, AnonymousUser):
-        authenticated = True
-
-    return authenticated
-
-
 def filter_results(results):
     return results
 
@@ -210,10 +199,6 @@ def get_auth_info_from_request():
                            ['user_id', 'password', 'token'])
 
     return auth_info(user_id, password, token)
-
-
-def set_anonymous_user():
-    _request_ctx_stack.top.user = AnonymousUser()
 
 
 def authenticate(authentication_providers, auth_info):
