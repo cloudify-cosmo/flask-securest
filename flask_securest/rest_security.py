@@ -50,6 +50,7 @@ class SecuREST(object):
         self.app = app
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
+        self.app.request_security_bypass_handler = None
 
         if app is not None:
             self.init_app(app)
@@ -68,6 +69,14 @@ class SecuREST(object):
     # TODO make property
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
+
+    @property
+    def request_security_bypass_handler(self):
+        return self.app.request_security_bypass_handler
+
+    @request_security_bypass_handler.setter
+    def request_security_bypass_handler(self, value):
+        self.app.request_security_bypass_handler = value
 
     def set_userstore_driver(self, userstore):
         """
@@ -133,7 +142,7 @@ def filter_results(results):
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if current_app.config.get(SECURED_MODE):
+        if _is_secured_request_context():
             try:
                 auth_info = get_auth_info_from_request()
                 authenticate(current_app.securest_authentication_providers,
@@ -148,6 +157,12 @@ def auth_required(func):
             # rest security turned off
             return func(*args, **kwargs)
     return wrapper
+
+
+def _is_secured_request_context():
+    return current_app.config.get(SECURED_MODE) and not \
+        (current_app.request_security_bypass_handler and
+         current_app.request_security_bypass_handler(request))
 
 
 def handle_unauthorized_user():
