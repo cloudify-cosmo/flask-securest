@@ -49,6 +49,7 @@ class SecuREST(object):
     def __init__(self, app=None):
         self.app = app
         self.app.securest_unauthorized_user_handler = None
+        self.app.securest_permission_loader = None
         self.app.securest_authentication_providers = []
 
         if app is not None:
@@ -130,16 +131,44 @@ def filter_results(results):
     return results
 
 
+def is_authorized(user, func):
+    authorized = False
+
+    user_permissions = {
+        'executions': ['get', 'post'],
+        'ProviderContext': ['get']
+    }
+    if current_app.securest_permission_loader:
+        user_permissions = current_app.securest_permission_loader()
+
+    method = func.im_func.func_name
+    endpoint = func.im_self.endpoint
+    # req_endpoint = request.endpoint
+    # req_method = request.method
+    for resource, allowed_actions in user_permissions.iteritems():
+        if equals_ignore_case(endpoint, resource) \
+                and method in allowed_actions:
+            authorized = True
+            break
+
+    return authorized
+
+
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if current_app.config.get(SECURED_MODE):
             try:
                 auth_info = get_auth_info_from_request()
-                authenticate(current_app.securest_authentication_providers,
-                             auth_info)
-                result = func(*args, **kwargs)
-                return filter_results(result)
+                user = authenticate(
+                    current_app.securest_authentication_providers, auth_info)
+                if is_authorized(user, func):
+                    result = func(*args, **kwargs)
+                    return filter_results(result)
+                else:
+                    current_app.logger.debug('blocked unauthorized user access to:'
+                                             ' {0}'.format(func))
+                    handle_unauthorized_user()
             except Exception:
                 current_app.logger.debug('blocked unauthorized user access to:'
                                          ' {0}'.format(func))
@@ -228,6 +257,16 @@ def get_instance_class_fqn(instance):
 
 def get_class_fqn(clazz):
     return clazz.__module__ + '.' + clazz.__name__
+
+
+def equals_ignore_case(string1, string2):
+    if string1 is None and string2 is None:
+        return True
+
+    if not (string1 and string2):
+        return False
+
+    return string1.lower() == string2.lower()
 
 
 class SecuredResource(Resource):
