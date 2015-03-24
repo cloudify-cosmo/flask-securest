@@ -120,17 +120,6 @@ def validate_configuration():
         raise Exception('authentication methods not set')
 
 
-'''
-def secured(resource_class):
-    current_app.logger.debug('adding resource to secured_resources: {0}'
-                             .format(utils.get_class_fqn(resource_class)))
-    global secured_resources
-    secured_resources.append(utils.get_class_fqn(resource_class))
-
-    return resource_class
-'''
-
-
 def filter_response_if_needed(response=None):
     return response
 
@@ -147,12 +136,10 @@ def auth_required(func):
                 auth_info = get_auth_info_from_request()
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
-                result = func(*args, **kwargs)
-                return filter_results(result)
             except Exception:
-                current_app.logger.debug('blocked unauthorized user access to:'
-                                         ' {0}'.format(func))
                 handle_unauthorized_user()
+            result = func(*args, **kwargs)
+            return filter_results(result)
         else:
             # rest security turned off
             return func(*args, **kwargs)
