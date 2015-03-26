@@ -1,5 +1,4 @@
 import os.path
-import yaml
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
 from flask.ext.securest.models import User, Role
 
@@ -45,5 +44,6 @@ class SimpleUserstore(AbstractUserstore):
         if ROLES in user_dict:
             for role_name in user_dict[ROLES]:
                 roles.append(Role(role_name))
+
         return User(user_dict[USERNAME], user_dict[PASSWORD],
                     user_dict[EMAIL], roles, active=True)
