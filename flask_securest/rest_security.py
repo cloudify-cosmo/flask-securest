@@ -92,8 +92,6 @@ class SecuREST(object):
 
 
 def validate_configuration():
-    if not current_app.securest_userstore_driver:
-        raise Exception('Userstore driver not set')
     if not current_app.securest_authentication_providers:
         raise Exception('authentication methods not set')
 
@@ -250,11 +248,15 @@ def set_anonymous_user():
 
 def authenticate(authentication_providers, auth_info):
     user = None
+    userstore_driver = None
     for auth_provider in authentication_providers:
         try:
-            userstore_driver = current_app.securest_userstore_driver
-            current_app.logger.debug('authenticating vs userstore: {0}'
-                                     .format(userstore_driver))
+            if hasattr(current_app, 'securest_userstore_driver'):
+                userstore_driver = current_app.securest_userstore_driver
+                current_app.logger.debug('authenticating vs userstore: {0}'
+                                         .format(userstore_driver))
+            else:
+                current_app.logger.debug('authenticating without userstore')
             user = auth_provider.authenticate(auth_info, userstore_driver)
             break
         except Exception as e:
