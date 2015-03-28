@@ -13,63 +13,59 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
+# TODO select the correct serializer, could be
+# URLSafeTimedSerializer
 from itsdangerous import \
-    URLSafeTimedSerializer, SignatureExpired, BadSignature
+    TimedJSONWebSignatureSerializer, SignatureExpired, BadSignature
+
+from flask_securest import rest_security
+from flask_securest.rest_security import AnonymousUser
 from abstract_authentication_provider import AbstractAuthenticationProvider
 
 
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
-    def __init__(self, secret_key, expiration):
+    def __init__(self, secret_key, expires_in=600):
         print '***** INITING TokenAuthenticator'
         self._secret_key = secret_key
-        self._expiration = expiration
+        self._serializer = TimedJSONWebSignatureSerializer(self._secret_key,
+                                                           expires_in)
+
+    def generate_auth_token(self):
+        current_user = rest_security.get_request_user()
+        if not current_user:
+            raise Exception('Failed to generate token, user not found on the '
+                            'current request')
+
+        if isinstance(current_user, AnonymousUser):
+            raise Exception('Token generation is not allowed for anonymous '
+                            'users')
+
+        return self._serializer.dumps({'username': current_user.username})
 
     def authenticate(self, auth_info, userstore):
         print '***** attempting to authenticate using TokenAuthenticator'
         token = auth_info.token
-        # current_app = flask_globals.current_app
         print '***** verifying auth token: ', token
 
         if not token:
-            raise ValueError('token is missing or empty')
+            raise Exception('token is missing or empty')
 
-        token_data = token.open_token(token=token, secret_key=self._secret_key)
-        if not token_data:
-            raise Exception('Unauthorized')
+        try:
+            print '***** attempting to deserialize the token'
+            open_token = self._serializer.loads(token)
+        except SignatureExpired:
+            print '***** exception SignatureExpired, returning None'
+            return None  # valid token, but expired
+        except BadSignature:
+            print '***** exception BadSignature, returning None'
+            return None  # invalid token
 
-        print '***** token loaded successfully, user id from token is: ', \
-            token_data['user_id']
         # TODO should the identity field in the token be configurable?
-        user_id = token_data['user_id']
+        username = open_token['username']
+        print '***** token loaded, username in token is: ', username
         print '***** getting user from userstore: ', userstore
-        user = userstore.get_user(user_id)
-        # compare passwords, if they don't match - the token is not valid
-        if not user.password \
-                or user.password != token_data['user_password']:
-            raise Exception('Unauthorized')
-
+        user = userstore.get_user(username)
+        # user = userstore.find_user(email=data['email'])
+        # for the SQLAlchemy model: user = User.query.get(data['id'])
         return user
-
-
-def generate_token(user_id, user_password, secret_key, expiration):
-    serializer = URLSafeTimedSerializer(secret_key, expires_in=expiration)
-    return serializer.dumps({'user_id': user_id,
-                             'user_password': user_password})
-
-
-def open_token(token, secret_key, expiration):
-    token_data = None
-    serializer = URLSafeTimedSerializer(secret_key, expires_in=expiration)
-
-    try:
-        print '***** attempting to deserialize the token'
-        token_data = serializer.loads(token)
-    except SignatureExpired:
-        print '***** exception SignatureExpired, returning None'
-        # valid token, but expired
-    except BadSignature:
-        print '***** exception BadSignature, returning None'
-        # invalid token
-
-    return token_data
