@@ -144,12 +144,22 @@ def filter_response_if_needed(response=None):
     return response
 
 
-def is_authenticated():
-    authenticated = False
+def get_request_user():
+    request_user = None
     # TODO is there a nicer way to do this?
     request_ctx = _request_ctx_stack.top
-    if hasattr(request_ctx, 'user') and \
-            not isinstance(request_ctx.user, AnonymousUser):
+    if hasattr(request_ctx, 'user'):
+        request_user = request_ctx.user
+
+    return request_user
+
+
+def is_authenticated():
+    authenticated = False
+    current_user = get_request_user()
+
+    if current_user and \
+            not isinstance(current_user, AnonymousUser):
         authenticated = True
 
     return authenticated
