@@ -222,7 +222,8 @@ def get_auth_info_from_request():
                         .format(auth_header_name, auth_token_header_name))
 
     if auth_header:
-        auth_header = auth_header.replace('Basic ', '', 1)        try:
+        auth_header = auth_header.replace('Basic ', '', 1)
+        try:
             from itsdangerous import base64_decode
             api_key = base64_decode(auth_header)
             # TODO parse better, with checks and all, this is shaky
