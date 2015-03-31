@@ -13,10 +13,13 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-# TODO select the correct serializer, could be
-# URLSafeTimedSerializer
-from itsdangerous import \
-    TimedJSONWebSignatureSerializer, SignatureExpired, BadSignature
+
+from flask import current_app
+
+# TODO select the correct serializer, could be URLSafeTimedSerializer
+from itsdangerous import (TimedJSONWebSignatureSerializer,
+                          SignatureExpired,
+                          BadSignature)
 
 from flask_securest import rest_security
 from flask_securest.models import AnonymousUser
@@ -44,20 +47,18 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
 
     def authenticate(self, auth_info, userstore):
         token = auth_info.token
-
         if not token:
             raise Exception('token is missing or empty')
 
         try:
             open_token = self._serializer.loads(token)
         except SignatureExpired:
+            current_app.logger.debug('token expired')
             return None  # valid token, but expired
         except BadSignature:
+            current_app.logger.debug('invalid token')
             return None  # invalid token
 
         # TODO should the identity field in the token be configurable?
         username = open_token['username']
-        user = userstore.get_user(username)
-        # user = userstore.find_user(email=data['email'])
-        # for the SQLAlchemy model: user = User.query.get(data['id'])
-        return user
+        return userstore.get_user(username)
