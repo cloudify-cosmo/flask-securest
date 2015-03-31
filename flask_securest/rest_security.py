@@ -1,3 +1,18 @@
+#########
+# Copyright (c) 2015 GigaSpaces Technologies Ltd. All rights reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+#  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  * See the License for the specific language governing permissions and
+#  * limitations under the License.
+
 from collections import namedtuple
 from functools import wraps
 from flask import current_app
@@ -36,6 +51,7 @@ class SecuREST(object):
         self.app = app
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
+        self.app.request_security_bypass_handler = None
 
         if app is not None:
             self.init_app(app)
@@ -56,16 +72,24 @@ class SecuREST(object):
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
+    @property
+    def request_security_bypass_handler(self):
+        return self.app.request_security_bypass_handler
+
+    @request_security_bypass_handler.setter
+    def request_security_bypass_handler(self, value):
+        self.app.request_security_bypass_handler = value
+
     def set_userstore_driver(self, userstore):
         """
         Registers the given userstore driver.
         :param userstore: the userstore driver to be set
         """
         if not isinstance(userstore, AbstractUserstore):
-            err_msg = 'userstore driver "{0}" must inherit "{1}"'.format(
-                get_instance_class_fqn(userstore),
-                get_class_fqn(AbstractUserstore))
-            # TODO is logging required here? will the raising be logged anyway?
+            err_msg = 'failed to register userstore driver "{0}", Error: ' \
+                      'driver does not inherit "{1}"'\
+                .format(get_instance_class_fqn(userstore),
+                        get_class_fqn(AbstractUserstore))
             self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
@@ -76,16 +100,16 @@ class SecuREST(object):
         Registers the given authentication method.
         :param provider: appends the given authentication provider to the list
          of providers
-        Note: Pay attention to the order of the registered providers.
+        NOTE: Pay attention to the order of the registered providers!
         authentication will be attempted on each of the registered providers,
         according to their registration order, until successful.
         """
         if not isinstance(provider, AbstractAuthenticationProvider):
-            err_msg = 'authentication provider "{0}" must inherit "{1}"'\
+            err_msg = 'failed to register authentication provider "{0}", ' \
+                      'Error: provider does not inherit "{1}"'\
                 .format(get_instance_class_fqn(provider),
                         get_class_fqn(AbstractAuthenticationProvider))
-            # TODO is logging required here? will the raising be logged anyway?
-            self.app.logger(err_msg)
+            self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
         self.app.securest_authentication_providers.append(provider)
@@ -172,17 +196,25 @@ def filter_results(results):
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if current_app.config.get(SECURED_MODE):
-            if is_authenticated():
-                result = func(*args, **kwargs)
-                return filter_results(result)
-            else:
-                current_app.logger.info('handling unauthorized user')
+        if _is_secured_request_context():
+            try:
+                auth_info = get_auth_info_from_request()
+                authenticate(current_app.securest_authentication_providers,
+                             auth_info)
+            except Exception:
                 handle_unauthorized_user()
+            result = func(*args, **kwargs)
+            return filter_results(result)
         else:
             # rest security turned off
             return func(*args, **kwargs)
     return wrapper
+
+
+def _is_secured_request_context():
+    return current_app.config.get(SECURED_MODE) and not \
+        (current_app.request_security_bypass_handler and
+         current_app.request_security_bypass_handler(request))
 
 
 def handle_unauthorized_user():
@@ -218,7 +250,6 @@ def get_auth_info_from_request():
 
     if auth_header:
         auth_header = auth_header.replace('Basic ', '', 1)
-        current_app.logger.debug('found auth header on request')
         try:
             from itsdangerous import base64_decode
             api_key = base64_decode(auth_header)
@@ -269,10 +300,10 @@ def authenticate(authentication_providers, auth_info):
                 current_app.logger.debug('authenticating without userstore')
             user = auth_provider.authenticate(auth_info, userstore_driver)
             break
-        except Exception as e:
-            #  TODO use the caught exception? or better hide the error?
-            current_app.logger.debug('caught authentication exception: {0}'
-                                     .format(e.message))
+        except Exception:
+            # logging a general error, not to expose account info
+            current_app.logger.debug('failed to authenticate user using {0}'
+                                     .format(auth_provider))
             continue  # try the next authentication method until successful
 
     if not user:
