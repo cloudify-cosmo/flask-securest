@@ -137,7 +137,8 @@ def auth_required(func):
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
             except Exception as e:
-                current_app.logger.debug('authentication failed, {0}'.format(e))
+                current_app.logger.debug('authentication failed, {0}'
+                                         .format(e))
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -219,8 +220,8 @@ def authenticate(authentication_providers, auth_info):
             user = auth_provider.authenticate(auth_info, userstore_driver)
             break
         except Exception as e:
-            current_app.logger.debug('failed to authenticate user using {0}, {1}'
-                                     .format(get_instance_class_fqn(
+            current_app.logger.debug('failed to authenticate user using {0}, '
+                                     '{1}'.format(get_instance_class_fqn(
                                          auth_provider), e))
             continue  # try the next authentication method until successful
 
