@@ -13,52 +13,39 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-
-from flask import current_app
-
-# TODO select the correct serializer, could be URLSafeTimedSerializer
-from itsdangerous import (TimedJSONWebSignatureSerializer,
+from itsdangerous import (URLSafeTimedSerializer,
                           SignatureExpired,
                           BadSignature)
 
-from flask_securest import rest_security
-from flask_securest.models import AnonymousUser
 from abstract_authentication_provider import AbstractAuthenticationProvider
 
 
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
-    def __init__(self, secret_key, expires_in=600):
+    def __init__(self, secret_key):
         self._secret_key = secret_key
-        self._serializer = TimedJSONWebSignatureSerializer(self._secret_key,
-                                                           expires_in)
-
-    def generate_auth_token(self):
-        current_user = rest_security.get_request_user()
-        if not current_user:
-            raise Exception('Failed to generate token, user not found on the '
-                            'current request')
-
-        if isinstance(current_user, AnonymousUser):
-            raise Exception('Token generation is not allowed for anonymous '
-                            'users')
-
-        return self._serializer.dumps({'username': current_user.username})
 
     def authenticate(self, auth_info, userstore):
         token = auth_info.token
         if not token:
             raise Exception('token is missing or empty')
 
+        serializer = URLSafeTimedSerializer(self._secret_key)
+
         try:
-            open_token = self._serializer.loads(token)
+            open_token = serializer.loads(token)
         except SignatureExpired:
-            current_app.logger.debug('token expired')
-            return None  # valid token, but expired
+            raise Exception('token expired')
         except BadSignature:
-            current_app.logger.debug('invalid token')
-            return None  # invalid token
+            raise Exception('invalid token')
 
         # TODO should the identity field in the token be configurable?
-        username = open_token['username']
-        return userstore.get_user(username)
+        username = open_token.get('username')
+        if not username:
+            raise Exception('invalid token')
+
+        user = userstore.get_user(username)
+        if not user:
+            raise Exception('user not found')
+
+        return user

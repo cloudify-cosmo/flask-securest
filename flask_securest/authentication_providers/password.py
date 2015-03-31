@@ -15,7 +15,6 @@
 
 from passlib.context import CryptContext
 from abstract_authentication_provider import AbstractAuthenticationProvider
-from flask import current_app
 
 DEFAULT_PASSWORD_HASH = 'plaintext'
 
@@ -39,8 +38,6 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
 
     def authenticate(self, auth_info, userstore):
         # TODO the auth_info identity field be configurable?
-        current_app.logger.debug('starting password authentication for {0}'
-                                 .format(auth_info.user_id))
         user_id = auth_info.user_id
         user = userstore.get_user(user_id)
 
