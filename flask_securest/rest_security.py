@@ -15,8 +15,10 @@
 
 from collections import namedtuple
 from functools import wraps
+
 from flask import current_app
 from flask_restful import Resource
+
 from userstores.abstract_userstore import AbstractUserstore
 from authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
@@ -114,8 +116,6 @@ class SecuREST(object):
 
 
 def validate_configuration():
-    if not current_app.securest_userstore_driver:
-        raise Exception('Userstore driver not set')
     if not current_app.securest_authentication_providers:
         raise Exception('authentication methods not set')
 
@@ -136,7 +136,9 @@ def auth_required(func):
                 auth_info = get_auth_info_from_request()
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
-            except Exception:
+            except Exception as e:
+                current_app.logger.debug('authentication failed, {0}'
+                                         .format(e))
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -204,17 +206,23 @@ def get_auth_info_from_request():
 
 def authenticate(authentication_providers, auth_info):
     user = None
+    userstore_driver = None
+
     for auth_provider in authentication_providers:
         try:
-            userstore_driver = current_app.securest_userstore_driver
-            current_app.logger.debug('authenticating vs userstore: {0}'
-                                     .format(userstore_driver))
+            if hasattr(current_app, 'securest_userstore_driver'):
+                userstore_driver = current_app.securest_userstore_driver
+                current_app.logger.debug('authenticating vs userstore: {0}'
+                                         .format(get_instance_class_fqn(
+                                             userstore_driver)))
+            else:
+                current_app.logger.debug('authenticating without userstore')
             user = auth_provider.authenticate(auth_info, userstore_driver)
             break
-        except Exception:
-            # logging a general error, not to expose account info
-            current_app.logger.debug('failed to authenticate user using {0}'
-                                     .format(auth_provider))
+        except Exception as e:
+            current_app.logger.debug('failed to authenticate user using {0}, '
+                                     '{1}'.format(get_instance_class_fqn(
+                                         auth_provider), e))
             continue  # try the next authentication method until successful
 
     if not user:
