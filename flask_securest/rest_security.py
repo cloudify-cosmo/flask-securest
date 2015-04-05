@@ -15,8 +15,10 @@
 
 from collections import namedtuple
 from functools import wraps
+
 from flask import current_app
 from flask_restful import Resource
+
 from userstores.abstract_userstore import AbstractUserstore
 from authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
@@ -25,8 +27,7 @@ from authentication_providers.abstract_authentication_provider \
 # TODO decide which of the below 'abort' is better?
 # TODO the werkzeug abort is referred to by flask's
 # from werkzeug.exceptions import abort
-from flask import abort, request, _request_ctx_stack
-from flask.ext.securest.models import AnonymousUser
+from flask import abort, request
 
 
 #: Default name of the auth header (``Authorization``)
@@ -49,21 +50,20 @@ class SecuREST(object):
 
     def __init__(self, app=None):
         self.app = app
-        self.app.securest_unauthorized_user_handler = None
-        self.app.securest_authentication_providers = []
 
         if app is not None:
             self.init_app(app)
 
     def init_app(self, app):
         app.config[SECURED_MODE] = True
-
-        # app.teardown_appcontext(self.teardown)
+        self.app.securest_unauthorized_user_handler = None
+        self.app.securest_authentication_providers = []
+        self.app.request_security_bypass_handler = None
         app.before_first_request(validate_configuration)
-        app.before_request(authenticate_request_if_needed)
         app.after_request(filter_response_if_needed)
+        # app.teardown_appcontext(self.teardown)
 
-    # TODO perform teardown operations if required
+    # TODO perform teardown operations as required
     # using def teardown(self, exception)
     # log the exception if not None/empty?
 
@@ -71,16 +71,24 @@ class SecuREST(object):
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
+    @property
+    def request_security_bypass_handler(self):
+        return self.app.request_security_bypass_handler
+
+    @request_security_bypass_handler.setter
+    def request_security_bypass_handler(self, value):
+        self.app.request_security_bypass_handler = value
+
     def set_userstore_driver(self, userstore):
         """
         Registers the given userstore driver.
         :param userstore: the userstore driver to be set
         """
         if not isinstance(userstore, AbstractUserstore):
-            err_msg = 'userstore driver "{0}" must inherit "{1}"'.format(
-                get_instance_class_fqn(userstore),
-                get_class_fqn(AbstractUserstore))
-            # TODO is logging required here? will the raising be logged anyway?
+            err_msg = 'failed to register userstore driver "{0}", Error: ' \
+                      'driver does not inherit "{1}"'\
+                .format(get_instance_class_fqn(userstore),
+                        get_class_fqn(AbstractUserstore))
             self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
@@ -91,16 +99,16 @@ class SecuREST(object):
         Registers the given authentication method.
         :param provider: appends the given authentication provider to the list
          of providers
-        Note: Pay attention to the order of the registered providers.
+        NOTE: Pay attention to the order of the registered providers!
         authentication will be attempted on each of the registered providers,
         according to their registration order, until successful.
         """
         if not isinstance(provider, AbstractAuthenticationProvider):
-            err_msg = 'authentication provider "{0}" must inherit "{1}"'\
+            err_msg = 'failed to register authentication provider "{0}", ' \
+                      'Error: provider does not inherit "{1}"'\
                 .format(get_instance_class_fqn(provider),
                         get_class_fqn(AbstractAuthenticationProvider))
-            # TODO is logging required here? will the raising be logged anyway?
-            self.app.logger(err_msg)
+            self.app.logger.error(err_msg)
             raise Exception(err_msg)
 
         self.app.securest_authentication_providers.append(provider)
@@ -108,66 +116,11 @@ class SecuREST(object):
 
 def validate_configuration():
     if not current_app.securest_authentication_providers:
-        raise Exception('authentication methods not set')
-
-
-def authenticate_request_if_needed():
-
-    if not current_app.config.get(SECURED_MODE):
-        current_app.logger.debug('secured mode is off, not setting user')
-    else:
-        from flask import globals
-        g_request = globals.request
-        endpoint = g_request.endpoint
-        current_app.logger.debug('authenticating request to endpoint: {0}'
-                                 .format(endpoint))
-        view_func = current_app.view_functions.get(endpoint)
-
-        if not view_func:
-            raise Exception('endpoint {0} is not mapped to a REST resource'
-                            .format(endpoint))
-
-        if not hasattr(view_func, VIEW_CLASS):
-            raise Exception('view_class attribute not found on view func {0}'
-                            .format(view_func))
-
-        resource_class = getattr(view_func, VIEW_CLASS)
-        if hasattr(resource_class, SECURED) \
-                and getattr(resource_class, SECURED):
-            current_app.logger.debug('accessing secured resource {0}, '
-                                     'attempting authentication'.format(
-                                         get_class_fqn(resource_class)))
-            authenticate_request()
-        else:
-            current_app.logger.debug('accessing open resource {0}, setting '
-                                     'anonymous user'.format(
-                                         get_class_fqn(resource_class)))
-            set_anonymous_user()
-
-'''
-def secured(resource_class):
-    current_app.logger.debug('adding resource to secured_resources: {0}'
-                             .format(utils.get_class_fqn(resource_class)))
-    global secured_resources
-    secured_resources.append(utils.get_class_fqn(resource_class))
-
-    return resource_class
-'''
+        raise Exception('authentication providers not set')
 
 
 def filter_response_if_needed(response=None):
     return response
-
-
-def is_authenticated():
-    authenticated = False
-    # TODO is there a nicer way to do this?
-    request_ctx = _request_ctx_stack.top
-    if hasattr(request_ctx, 'user') and \
-            not isinstance(request_ctx.user, AnonymousUser):
-        authenticated = True
-
-    return authenticated
 
 
 def filter_results(results):
@@ -177,17 +130,27 @@ def filter_results(results):
 def auth_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if current_app.config.get(SECURED_MODE):
-            if is_authenticated():
-                result = func(*args, **kwargs)
-                return filter_results(result)
-            else:
-                current_app.logger.info('handling unauthorized user')
+        if _is_secured_request_context():
+            try:
+                auth_info = get_auth_info_from_request()
+                authenticate(current_app.securest_authentication_providers,
+                             auth_info)
+            except Exception as e:
+                current_app.logger.debug('authentication failed, {0}'
+                                         .format(e))
                 handle_unauthorized_user()
+            result = func(*args, **kwargs)
+            return filter_results(result)
         else:
             # rest security turned off
             return func(*args, **kwargs)
     return wrapper
+
+
+def _is_secured_request_context():
+    return current_app.config.get(SECURED_MODE) and not \
+        (current_app.request_security_bypass_handler and
+         current_app.request_security_bypass_handler(request))
 
 
 def handle_unauthorized_user():
@@ -240,43 +203,25 @@ def get_auth_info_from_request():
     return auth_info(user_id, password, token)
 
 
-def authenticate_request():
-    auth_info = get_auth_info_from_request()
-
-    try:
-        user = authenticate(current_app.securest_authentication_providers,
-                            auth_info)
-        # TODO make sure this doesn't print all user props, just the username
-        current_app.logger.debug('authenticated user: {0}'.format(user))
-    except Exception:
-        current_app.logger.warning('authentication failed, setting anonymous '
-                                   'user')
-        set_anonymous_user()
-    else:
-        _request_ctx_stack.top.user = user
-
-
-def set_anonymous_user():
-    _request_ctx_stack.top.user = AnonymousUser()
-
-
 def authenticate(authentication_providers, auth_info):
     user = None
     userstore_driver = None
+
     for auth_provider in authentication_providers:
         try:
             if hasattr(current_app, 'securest_userstore_driver'):
                 userstore_driver = current_app.securest_userstore_driver
                 current_app.logger.debug('authenticating vs userstore: {0}'
-                                         .format(userstore_driver))
+                                         .format(get_instance_class_fqn(
+                                             userstore_driver)))
             else:
                 current_app.logger.debug('authenticating without userstore')
             user = auth_provider.authenticate(auth_info, userstore_driver)
             break
         except Exception as e:
-            #  TODO use the caught exception? or better hide the error?
-            current_app.logger.debug('caught authentication exception: {0}'
-                                     .format(e.message))
+            current_app.logger.debug('failed to authenticate user using {0}, '
+                                     '{1}'.format(get_instance_class_fqn(
+                                         auth_provider), e))
             continue  # try the next authentication method until successful
 
     if not user:
