@@ -22,6 +22,8 @@ from itsdangerous import (TimedJSONWebSignatureSerializer,
 from flask_securest import rest_security
 from abstract_authentication_provider import AbstractAuthenticationProvider
 
+USERNAME_FIELD = 'username'
+
 
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
@@ -36,7 +38,7 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
             raise Exception('Failed to generate token, user not found on the '
                             'current request')
 
-        return self._serializer.dumps({'username': current_user.username})
+        return self._serializer.dumps({USERNAME_FIELD: current_user.username})
 
     def authenticate(self, auth_info, userstore):
         token = auth_info.token
@@ -51,7 +53,7 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
             raise Exception('invalid token')
 
         # TODO should the identity field in the token be configurable?
-        username = open_token.get('username')
+        username = open_token.get(USERNAME_FIELD)
         if not username:
             raise Exception('invalid token')
 

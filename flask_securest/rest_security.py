@@ -16,7 +16,7 @@
 from collections import namedtuple
 from functools import wraps
 
-from flask import current_app
+from flask import current_app, _request_ctx_stack
 from flask_restful import Resource
 
 from userstores.abstract_userstore import AbstractUserstore
@@ -56,20 +56,15 @@ class SecuREST(object):
         # log the exception if not None/empty?
 
     @property
-    def unauthorized_user_handler(self):
-        return self.app.securest_unauthorized_user_handler
-
-    @unauthorized_user_handler.setter
-    def unauthorized_user_handler(self, unauthorized_user_handler):
-        self.app.securest_unauthorized_user_handler = unauthorized_user_handler
-
-    @property
     def request_security_bypass_handler(self):
         return self.app.request_security_bypass_handler
 
     @request_security_bypass_handler.setter
     def request_security_bypass_handler(self, value):
         self.app.request_security_bypass_handler = value
+
+    def set_unauthorized_user_handler(self, unauthorized_user_handler):
+        self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
     def set_userstore_driver(self, userstore):
         """
@@ -220,7 +215,23 @@ def authenticate(authentication_providers, auth_info):
     if not user:
         raise Exception('Unauthorized')
 
+    set_request_user(user)
     return user
+
+
+def get_request_user():
+    request_user = None
+    # TODO is there a nicer way to do this?
+    request_ctx = _request_ctx_stack.top
+    if hasattr(request_ctx, 'user'):
+        request_user = request_ctx.user
+
+    return request_user
+
+
+def set_request_user(user):
+    request_ctx = _request_ctx_stack.top
+    request_ctx.user = user
 
 
 def get_instance_class_fqn(instance):
