@@ -16,18 +16,15 @@
 from collections import namedtuple
 from functools import wraps
 
-from flask import current_app, _request_ctx_stack
+from flask import (current_app,
+                   abort,
+                   request,
+                   _request_ctx_stack)
 from flask_restful import Resource
 
 from userstores.abstract_userstore import AbstractUserstore
 from authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
-
-
-# TODO decide which of the below 'abort' is better?
-# TODO the werkzeug abort is referred to by flask's
-# from werkzeug.exceptions import abort
-from flask import abort, request
 
 
 AUTH_HEADER_NAME = 'Authorization'
@@ -49,11 +46,6 @@ class SecuREST(object):
 
         self.app.before_first_request(validate_configuration)
         self.app.after_request(filter_response_if_needed)
-
-        # app.teardown_appcontext(self.teardown)
-        # TODO perform teardown operations as required
-        # using def teardown(self, exception)
-        # log the exception if not None/empty?
 
     @property
     def request_security_bypass_handler(self):
@@ -129,7 +121,7 @@ def auth_required(func):
             result = func(*args, **kwargs)
             return filter_results(result)
         else:
-            # rest security turned off
+            # rest security is turned off
             return func(*args, **kwargs)
     return wrapper
 
@@ -195,43 +187,46 @@ def authenticate(authentication_providers, auth_info):
 
     for auth_provider in authentication_providers:
         try:
-            if current_app.securest_userstore_driver:
+            userstore_driver = current_app.securest_userstore_driver
+            if userstore_driver:
                 current_app.logger.debug(
-                    'authenticating vs userstore: {0}'
-                    .format(get_instance_class_fqn(
-                        current_app.securest_userstore_driver)))
+                    'attempting authentication with provider "{0}" '
+                    'and userstore: "{1}"'.format(
+                        get_instance_class_fqn(auth_provider),
+                        get_instance_class_fqn(userstore_driver)))
             else:
-                current_app.logger.debug('authenticating without userstore')
+                current_app.logger.debug(
+                    'attempting authentication with provider "{0}" and '
+                    'without userstore'.format(
+                        get_instance_class_fqn(auth_provider)))
 
             user = auth_provider.authenticate(
-                auth_info, current_app.securest_userstore_driver)
+                auth_info, userstore_driver)
+            current_app.logger.debug('authentication succeeded')
             break
         except Exception as e:
-            current_app.logger.debug('failed to authenticate user using {0}, '
-                                     '{1}'.format(get_instance_class_fqn(
-                                         auth_provider), e))
+            current_app.logger.debug('authentication failed, {0}'.format(e))
             continue  # try the next authentication method until successful
 
     if not user:
         raise Exception('Unauthorized')
 
     set_request_user(user)
-    return user
+
+
+def _get_request_context():
+    request_ctx = _request_ctx_stack.top
+    if request_ctx is None:
+        raise RuntimeError('working outside of request context')
+    return request_ctx
 
 
 def get_request_user():
-    request_user = None
-    # TODO is there a nicer way to do this?
-    request_ctx = _request_ctx_stack.top
-    if hasattr(request_ctx, 'user'):
-        request_user = request_ctx.user
-
-    return request_user
+    return getattr(_get_request_context(), 'user')
 
 
 def set_request_user(user):
-    request_ctx = _request_ctx_stack.top
-    request_ctx.user = user
+    _get_request_context().user = user
 
 
 def get_instance_class_fqn(instance):

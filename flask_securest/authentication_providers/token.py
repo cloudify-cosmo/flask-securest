@@ -13,14 +13,13 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-# TODO select the correct serializer, could be
-# URLSafeTimedSerializer
 from itsdangerous import (TimedJSONWebSignatureSerializer,
                           SignatureExpired,
                           BadSignature)
 
 from flask_securest import rest_security
-from abstract_authentication_provider import AbstractAuthenticationProvider
+from flask_securest.authentication_providers.abstract_authentication_provider \
+    import AbstractAuthenticationProvider
 
 USERNAME_FIELD = 'username'
 
@@ -33,12 +32,8 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
                                                            expires_in)
 
     def generate_auth_token(self):
-        current_user = rest_security.get_request_user()
-        if not current_user:
-            raise Exception('Failed to generate token, user not found on the '
-                            'current request')
-
-        return self._serializer.dumps({USERNAME_FIELD: current_user.username})
+        return self._serializer.dumps(
+            {USERNAME_FIELD: rest_security.get_request_user().username})
 
     def authenticate(self, auth_info, userstore):
         token = auth_info.token
