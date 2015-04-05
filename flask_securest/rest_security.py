@@ -30,32 +30,26 @@ from authentication_providers.abstract_authentication_provider \
 from flask import abort, request
 
 
-#: Default name of the auth header (``Authorization``)
 AUTH_HEADER_NAME = 'Authorization'
 AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
-SECRET_KEY = 'SECUREST_SECRET_KEY'
 SECURED_MODE = 'SECUREST_MODE'
-
-# TODO is this required?
-# PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
-
-SECURED = 'secured'
-VIEW_CLASS = 'view_class'
-
-secured_resources = []
 
 
 class SecuREST(object):
 
     def __init__(self, app):
         self.app = app
+
         self.app.config[SECURED_MODE] = True
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
+        self.app.securest_userstore_driver = None
         self.app.request_security_bypass_handler = None
-        app.before_first_request(validate_configuration)
-        app.after_request(filter_response_if_needed)
+
+        self.app.before_first_request(validate_configuration)
+        self.app.after_request(filter_response_if_needed)
+
         # app.teardown_appcontext(self.teardown)
         # TODO perform teardown operations as required
         # using def teardown(self, exception)
@@ -203,18 +197,19 @@ def get_auth_info_from_request():
 
 def authenticate(authentication_providers, auth_info):
     user = None
-    userstore_driver = None
 
     for auth_provider in authentication_providers:
         try:
-            if hasattr(current_app, 'securest_userstore_driver'):
-                userstore_driver = current_app.securest_userstore_driver
-                current_app.logger.debug('authenticating vs userstore: {0}'
-                                         .format(get_instance_class_fqn(
-                                             userstore_driver)))
+            if current_app.securest_userstore_driver:
+                current_app.logger.debug(
+                    'authenticating vs userstore: {0}'
+                    .format(get_instance_class_fqn(
+                        current_app.securest_userstore_driver)))
             else:
                 current_app.logger.debug('authenticating without userstore')
-            user = auth_provider.authenticate(auth_info, userstore_driver)
+
+            user = auth_provider.authenticate(
+                auth_info, current_app.securest_userstore_driver)
             break
         except Exception as e:
             current_app.logger.debug('failed to authenticate user using {0}, '
