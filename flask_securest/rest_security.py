@@ -48,26 +48,24 @@ secured_resources = []
 
 class SecuREST(object):
 
-    def __init__(self, app=None):
+    def __init__(self, app):
         self.app = app
-
-        if app is not None:
-            self.init_app(app)
-
-    def init_app(self, app):
-        app.config[SECURED_MODE] = True
+        self.app.config[SECURED_MODE] = True
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
         self.app.request_security_bypass_handler = None
         app.before_first_request(validate_configuration)
         app.after_request(filter_response_if_needed)
         # app.teardown_appcontext(self.teardown)
+        # TODO perform teardown operations as required
+        # using def teardown(self, exception)
+        # log the exception if not None/empty?
 
-    # TODO perform teardown operations as required
-    # using def teardown(self, exception)
-    # log the exception if not None/empty?
+    @property
+    def unauthorized_user_handler(self):
+        return self.app.securest_unauthorized_user_handler
 
-    # TODO make property
+    @unauthorized_user_handler.setter
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
