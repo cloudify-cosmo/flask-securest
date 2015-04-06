@@ -55,7 +55,12 @@ class SecuREST(object):
     def request_security_bypass_handler(self, value):
         self.app.request_security_bypass_handler = value
 
-    def set_unauthorized_user_handler(self, unauthorized_user_handler):
+    @property
+    def unauthorized_user_handler(self):
+        return self.app.securest_unauthorized_user_handler
+
+    @unauthorized_user_handler.setter
+    def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
     def set_userstore_driver(self, userstore):
