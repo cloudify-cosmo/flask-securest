@@ -47,7 +47,6 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
         except BadSignature:
             raise Exception('invalid token')
 
-        # TODO should the identity field in the token be configurable?
         username = open_token.get(USERNAME_FIELD)
         if not username:
             raise Exception('invalid token')

@@ -185,9 +185,9 @@ def get_auth_info_from_request():
 def authenticate(authentication_providers, auth_info):
     user = None
 
+    userstore_driver = current_app.securest_userstore_driver
     for auth_provider in authentication_providers:
         try:
-            userstore_driver = current_app.securest_userstore_driver
             if userstore_driver:
                 current_app.logger.debug(
                     'attempting authentication with provider "{0}" '
