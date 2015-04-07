@@ -13,34 +13,41 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-from itsdangerous import (URLSafeTimedSerializer,
+from itsdangerous import (TimedJSONWebSignatureSerializer,
                           SignatureExpired,
                           BadSignature)
 
-from abstract_authentication_provider import AbstractAuthenticationProvider
+from flask_securest import rest_security
+from flask_securest.authentication_providers.abstract_authentication_provider \
+    import AbstractAuthenticationProvider
+
+USERNAME_FIELD = 'username'
 
 
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
-    def __init__(self, secret_key):
+    def __init__(self, secret_key, expires_in=600):
         self._secret_key = secret_key
+        self._serializer = TimedJSONWebSignatureSerializer(self._secret_key,
+                                                           expires_in)
+
+    def generate_auth_token(self):
+        return self._serializer.dumps(
+            {USERNAME_FIELD: rest_security.get_request_user().username})
 
     def authenticate(self, auth_info, userstore):
         token = auth_info.token
         if not token:
             raise Exception('token is missing or empty')
 
-        serializer = URLSafeTimedSerializer(self._secret_key)
-
         try:
-            open_token = serializer.loads(token)
+            open_token = self._serializer.loads(token)
         except SignatureExpired:
             raise Exception('token expired')
         except BadSignature:
             raise Exception('invalid token')
 
-        # TODO should the identity field in the token be configurable?
-        username = open_token.get('username')
+        username = open_token.get(USERNAME_FIELD)
         if not username:
             raise Exception('invalid token')
 

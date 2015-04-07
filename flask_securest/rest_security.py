@@ -16,7 +16,10 @@
 from collections import namedtuple
 from functools import wraps
 
-from flask import current_app
+from flask import (current_app,
+                   abort,
+                   request,
+                   _request_ctx_stack)
 from flask_restful import Resource
 
 from userstores.abstract_userstore import AbstractUserstore
@@ -24,53 +27,25 @@ from authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
 
 
-# TODO decide which of the below 'abort' is better?
-# TODO the werkzeug abort is referred to by flask's
-# from werkzeug.exceptions import abort
-from flask import abort, request
-
-
-#: Default name of the auth header (``Authorization``)
 AUTH_HEADER_NAME = 'Authorization'
 AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
-SECRET_KEY = 'SECUREST_SECRET_KEY'
 SECURED_MODE = 'SECUREST_MODE'
-
-# TODO is this required?
-# PERMANENT_SESSION_LIFETIME = datetime.timedelta(seconds=30)
-
-SECURED = 'secured'
-VIEW_CLASS = 'view_class'
-
-secured_resources = []
 
 
 class SecuREST(object):
 
-    def __init__(self, app=None):
+    def __init__(self, app):
         self.app = app
+
+        self.app.config[SECURED_MODE] = True
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
+        self.app.securest_userstore_driver = None
         self.app.request_security_bypass_handler = None
 
-        if app is not None:
-            self.init_app(app)
-
-    def init_app(self, app):
-        app.config[SECURED_MODE] = True
-
-        # app.teardown_appcontext(self.teardown)
-        app.before_first_request(validate_configuration)
-        app.after_request(filter_response_if_needed)
-
-    # TODO perform teardown operations if required
-    # using def teardown(self, exception)
-    # log the exception if not None/empty?
-
-    # TODO make property
-    def unauthorized_user_handler(self, unauthorized_user_handler):
-        self.app.securest_unauthorized_user_handler = unauthorized_user_handler
+        self.app.before_first_request(validate_configuration)
+        self.app.after_request(filter_response_if_needed)
 
     @property
     def request_security_bypass_handler(self):
@@ -79,6 +54,14 @@ class SecuREST(object):
     @request_security_bypass_handler.setter
     def request_security_bypass_handler(self, value):
         self.app.request_security_bypass_handler = value
+
+    @property
+    def unauthorized_user_handler(self):
+        return self.app.securest_unauthorized_user_handler
+
+    @unauthorized_user_handler.setter
+    def unauthorized_user_handler(self, unauthorized_user_handler):
+        self.app.securest_unauthorized_user_handler = unauthorized_user_handler
 
     def set_userstore_driver(self, userstore):
         """
@@ -117,7 +100,7 @@ class SecuREST(object):
 
 def validate_configuration():
     if not current_app.securest_authentication_providers:
-        raise Exception('authentication methods not set')
+        raise Exception('authentication providers not set')
 
 
 def filter_response_if_needed(response=None):
@@ -143,7 +126,7 @@ def auth_required(func):
             result = func(*args, **kwargs)
             return filter_results(result)
         else:
-            # rest security turned off
+            # rest security is turned off
             return func(*args, **kwargs)
     return wrapper
 
@@ -206,29 +189,49 @@ def get_auth_info_from_request():
 
 def authenticate(authentication_providers, auth_info):
     user = None
-    userstore_driver = None
 
+    userstore_driver = current_app.securest_userstore_driver
     for auth_provider in authentication_providers:
         try:
-            if hasattr(current_app, 'securest_userstore_driver'):
-                userstore_driver = current_app.securest_userstore_driver
-                current_app.logger.debug('authenticating vs userstore: {0}'
-                                         .format(get_instance_class_fqn(
-                                             userstore_driver)))
+            if userstore_driver:
+                current_app.logger.debug(
+                    'attempting authentication with provider "{0}" '
+                    'and userstore: "{1}"'.format(
+                        get_instance_class_fqn(auth_provider),
+                        get_instance_class_fqn(userstore_driver)))
             else:
-                current_app.logger.debug('authenticating without userstore')
-            user = auth_provider.authenticate(auth_info, userstore_driver)
+                current_app.logger.debug(
+                    'attempting authentication with provider "{0}" and '
+                    'without userstore'.format(
+                        get_instance_class_fqn(auth_provider)))
+
+            user = auth_provider.authenticate(
+                auth_info, userstore_driver)
+            current_app.logger.debug('authentication succeeded')
             break
         except Exception as e:
-            current_app.logger.debug('failed to authenticate user using {0}, '
-                                     '{1}'.format(get_instance_class_fqn(
-                                         auth_provider), e))
+            current_app.logger.debug('authentication failed, {0}'.format(e))
             continue  # try the next authentication method until successful
 
     if not user:
         raise Exception('Unauthorized')
 
-    return user
+    set_request_user(user)
+
+
+def _get_request_context():
+    request_ctx = _request_ctx_stack.top
+    if request_ctx is None:
+        raise RuntimeError('working outside of request context')
+    return request_ctx
+
+
+def get_request_user():
+    return getattr(_get_request_context(), 'user')
+
+
+def set_request_user(user):
+    _get_request_context().user = user
 
 
 def get_instance_class_fqn(instance):

@@ -92,16 +92,5 @@ class User(UserModel):
         return self._email
 
 
-class AnonymousUser(UserModel):
-    def is_active(self):
-        return False
-
-    def is_anonymous(self):
-        return True
-
-    def get_roles(self):
-        return []
-
-
 def get_runtime_class_fqn(instance):
     return type(instance).__module__ + '.' + type(instance).__name__
