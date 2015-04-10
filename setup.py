@@ -31,14 +31,10 @@ setup(
     author_email='noak@gigaspaces.com',
     description='Simple framework for securing Flask REST applications',
     long_description=get_long_description(),
-    # if you would be using a package instead use packages instead
-    # of py_modules:
     packages=['flask_securest',
               'flask_securest.authentication_providers',
               'flask_securest.userstores'],
     zip_safe=False,
-    # include_package_data=True,
-    # platforms='any',
     install_requires=[
         'Flask>=0.9',
         'Flask-RESTful>=0.2.5',
