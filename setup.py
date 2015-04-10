@@ -20,7 +20,7 @@ setup(
     name='Flask-SecuREST',
     version='0.5',
     # url='http://example.com/flask-securest/',
-    # license='BSD',
+    license='LICENSE',
     author='Noa Kuperberg',
     author_email='noak@gigaspaces.com',
     # description='Securing Flask REST applications',
