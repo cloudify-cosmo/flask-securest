@@ -30,7 +30,7 @@ setup(
     packages=['flask_securest',
               'flask_securest.authentication_providers',
               'flask_securest.userstores'],
-    # zip_safe=False,
+    zip_safe=False,
     # include_package_data=True,
     # platforms='any',
     install_requires=[
