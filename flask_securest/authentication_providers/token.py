@@ -13,6 +13,8 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
+
+from flask import current_app, request
 from itsdangerous import (TimedJSONWebSignatureSerializer,
                           SignatureExpired,
                           BadSignature)
@@ -21,6 +23,8 @@ from flask_securest import rest_security
 from flask_securest.authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
 
+
+DEFAULT_TOKEN_HEADER_NAME = 'Authentication-Token'
 USERNAME_FIELD = 'username'
 
 
@@ -35,8 +39,8 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
         return self._serializer.dumps(
             {USERNAME_FIELD: rest_security.get_request_user().username})
 
-    def authenticate(self, auth_info, userstore):
-        token = auth_info.token
+    def authenticate(self, userstore):
+        token = _get_auth_info_from_request()
         if not token:
             raise Exception('token is missing or empty')
 
@@ -56,3 +60,13 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
             raise Exception('user not found')
 
         return user
+
+
+def _get_auth_info_from_request():
+    token_header_name = current_app.config.get('AUTH_TOKEN_HEADER_NAME',
+                                               DEFAULT_TOKEN_HEADER_NAME)
+    token = request.headers.get(token_header_name)
+    if not token:
+        raise Exception('Authentication header not found on request: {0}'
+                        .format(token_header_name))
+    return token

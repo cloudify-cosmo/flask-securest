@@ -13,22 +13,18 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-from collections import namedtuple
 from functools import wraps
 
-from flask import (current_app,
-                   abort,
+from flask import (abort,
+                   current_app,
                    request,
                    _request_ctx_stack)
 from flask_restful import Resource
 
-from userstores.abstract_userstore import AbstractUserstore
-from authentication_providers.abstract_authentication_provider \
+from flask_securest.userstores.abstract_userstore import AbstractUserstore
+from flask_securest.authentication_providers.abstract_authentication_provider\
     import AbstractAuthenticationProvider
 
-
-AUTH_HEADER_NAME = 'Authorization'
-AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
 
 SECURED_MODE = 'SECUREST_MODE'
 
@@ -116,9 +112,7 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if _is_secured_request_context():
             try:
-                auth_info = get_auth_info_from_request()
-                authenticate(current_app.securest_authentication_providers,
-                             auth_info)
+                authenticate(current_app.securest_authentication_providers)
             except Exception as e:
                 current_app.logger.debug('authentication failed, {0}'
                                          .format(e))
@@ -146,72 +140,27 @@ def handle_unauthorized_user():
         abort(401)
 
 
-def get_auth_info_from_request():
-    user_id = None
-    password = None
-    token = None
-
-    # TODO remember this is configurable - document
-    app_config = current_app.config
-
-    auth_header_name = app_config.get('AUTH_HEADER_NAME', AUTH_HEADER_NAME)
-    if auth_header_name:
-        auth_header = request.headers.get(auth_header_name)
-
-    auth_token_header_name = app_config.get('AUTH_TOKEN_HEADER_NAME',
-                                            AUTH_TOKEN_HEADER_NAME)
-    if auth_token_header_name:
-        token = request.headers.get(auth_token_header_name)
-
-    if not auth_header and not token:
-        raise Exception('Failed to get authentication information from '
-                        'request, headers not found: {0}, {1}'
-                        .format(auth_header_name, auth_token_header_name))
-
-    if auth_header:
-        auth_header = auth_header.replace('Basic ', '', 1)
-        try:
-            from itsdangerous import base64_decode
-            api_key = base64_decode(auth_header)
-            # TODO parse better, with checks and all, this is shaky
-        except TypeError:
-            pass
-        else:
-            api_key_parts = api_key.split(':')
-            user_id = api_key_parts[0]
-            password = api_key_parts[1]
-
-    auth_info = namedtuple('auth_info_type',
-                           ['user_id', 'password', 'token'])
-
-    return auth_info(user_id, password, token)
-
-
-def authenticate(authentication_providers, auth_info):
+def authenticate(authentication_providers):
     user = None
 
     userstore_driver = current_app.securest_userstore_driver
     for auth_provider in authentication_providers:
         try:
+            log_message = 'attempting authentication with provider "{0}" and '\
+                .format(get_instance_class_fqn(auth_provider))
             if userstore_driver:
-                current_app.logger.debug(
-                    'attempting authentication with provider "{0}" '
-                    'and userstore: "{1}"'.format(
-                        get_instance_class_fqn(auth_provider),
-                        get_instance_class_fqn(userstore_driver)))
+                log_message += 'userstore: "{0}"'.format(
+                    get_instance_class_fqn(userstore_driver))
             else:
-                current_app.logger.debug(
-                    'attempting authentication with provider "{0}" and '
-                    'without userstore'.format(
-                        get_instance_class_fqn(auth_provider)))
+                log_message += 'without userstore'
 
-            user = auth_provider.authenticate(
-                auth_info, userstore_driver)
+            current_app.logger.debug(log_message)
+            user = auth_provider.authenticate(userstore_driver)
             current_app.logger.debug('authentication succeeded')
             break
         except Exception as e:
             current_app.logger.debug('authentication failed, {0}'.format(e))
-            continue  # try the next authentication method until successful
+            continue  # try the next authentication provider until successful
 
     if not user:
         raise Exception('Unauthorized')

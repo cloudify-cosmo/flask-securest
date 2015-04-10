@@ -13,9 +13,16 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-from passlib.context import CryptContext
-from abstract_authentication_provider import AbstractAuthenticationProvider
 
+from flask import current_app, request
+from itsdangerous import base64_decode
+from passlib.context import CryptContext
+
+from flask_securest.authentication_providers.abstract_authentication_provider\
+    import AbstractAuthenticationProvider
+
+
+DEFAULT_AUTH_HEADER_NAME = 'Authorization'
 DEFAULT_PASSWORD_HASH = 'plaintext'
 
 PASSWORD_SCHEMES = [
@@ -36,24 +43,45 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
     def __init__(self, password_hash=DEFAULT_PASSWORD_HASH):
         self.crypt_ctx = _get_crypt_context(password_hash)
 
-    def authenticate(self, auth_info, userstore):
-        # TODO the auth_info identity field be configurable?
-        user_id = auth_info.user_id
+    def authenticate(self, userstore):
+        user_id, password = _get_auth_info_from_request()
         user = userstore.get_user(user_id)
 
         if not user:
             raise Exception('user not found')
         if not user.password:
             raise Exception('password is missing or empty')
-            # TODO maybe use verify_and_update()?
 
-        # TODO should the 'password' field in the user object be configurable?
-        if not self.crypt_ctx.verify(auth_info.password, user.password):
+        if not self.crypt_ctx.verify(password, user.password):
             raise Exception('wrong password')
         if not user.is_active():
             raise Exception('user not active')
 
         return user
+
+
+def _get_auth_info_from_request():
+    auth_header_name = current_app.config.get('AUTH_HEADER_NAME',
+                                              DEFAULT_AUTH_HEADER_NAME)
+    auth_header = request.headers.get(auth_header_name)
+    if not auth_header:
+        raise Exception('Authentication header not found on request: {0}'
+                        .format(auth_header_name))
+
+    # removing "Basic " prefix if found (i.e. basic http auth header)
+    auth_header = auth_header.replace('Basic ', '', 1)
+    try:
+        api_key = base64_decode(auth_header)
+    except TypeError as e:
+        raise Exception('Failed to read authentication data from request, {0}'
+                        .format(e))
+
+    # TODO parse better, with checks and all, this is shaky
+    api_key_parts = api_key.split(':')
+    user_id = api_key_parts[0]
+    password = api_key_parts[1]
+
+    return user_id, password
 
 
 def _get_crypt_context(password_hash):
