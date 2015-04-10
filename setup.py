@@ -16,6 +16,12 @@
 from setuptools import setup
 
 
+def get_long_description():
+    with open('README.md') as f:
+        txt = f.read()
+    return txt
+    
+
 setup(
     name='Flask-SecuREST',
     version='0.5',
@@ -23,8 +29,8 @@ setup(
     license='LICENSE',
     author='Noa Kuperberg',
     author_email='noak@gigaspaces.com',
-    # description='Securing Flask REST applications',
-    # long_description=__doc__,
+    description='Simple framework for securing Flask REST applications',
+    long_description=get_long_description(),
     # if you would be using a package instead use packages instead
     # of py_modules:
     packages=['flask_securest',
