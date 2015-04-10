@@ -38,7 +38,7 @@ setup(
     # platforms='any',
     install_requires=[
         'Flask>=0.9',
-        'Flask-RESTful',
+        'Flask-RESTful>=0.2.5',
         'passlib>=1.6.2',
         'itsdangerous>=0.24',
     ],
