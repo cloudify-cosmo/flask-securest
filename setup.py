@@ -16,36 +16,36 @@
 from setuptools import setup
 
 
+def get_long_description():
+    with open('README.md') as f:
+        txt = f.read()
+    return txt
+    
+
 setup(
     name='Flask-SecuREST',
     version='0.5',
-    # url='http://example.com/flask-securest/',
-    # license='BSD',
-    author='noak',
+    url='https://github.com/cloudify-cosmo/flask-securest/',
+    license='LICENSE',
+    author='Noa Kuperberg',
     author_email='noak@gigaspaces.com',
-    # description='Securing Flask REST applications',
-    # long_description=__doc__,
-    # if you would be using a package instead use packages instead
-    # of py_modules:
+    description='Simple framework for securing Flask REST applications',
+    long_description=get_long_description(),
     packages=['flask_securest',
               'flask_securest.authentication_providers',
               'flask_securest.userstores'],
-    package_data={
-        'flask_securest': ['resources/users.yaml'],
-        },
-    # zip_safe=False,
-    # include_package_data=True,
-    # platforms='any',
+    zip_safe=False,
     install_requires=[
         'Flask>=0.9',
-        'Flask-RESTful',
+        'Flask-RESTful>=0.2.5',
         'passlib>=1.6.2',
         'itsdangerous>=0.24',
     ],
     classifiers=[
+        'Development Status :: 4 - Beta',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
-        # 'License :: OSI Approved :: BSD License',
+        'License :: OSI Approved :: Apache Software License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
