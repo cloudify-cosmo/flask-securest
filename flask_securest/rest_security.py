@@ -39,6 +39,7 @@ class SecuREST(object):
         self.app = app
 
         self.app.config[SECURED_MODE] = True
+        self.app.securest_logger = None
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = []
         self.app.securest_userstore_driver = None
@@ -52,8 +53,9 @@ class SecuREST(object):
         return self.app.request_security_bypass_handler
 
     @request_security_bypass_handler.setter
-    def request_security_bypass_handler(self, value):
-        self.app.request_security_bypass_handler = value
+    def request_security_bypass_handler(self, request_security_bypass_handler):
+        self.app.request_security_bypass_handler = \
+            request_security_bypass_handler
 
     @property
     def unauthorized_user_handler(self):
@@ -62,6 +64,14 @@ class SecuREST(object):
     @unauthorized_user_handler.setter
     def unauthorized_user_handler(self, unauthorized_user_handler):
         self.app.securest_unauthorized_user_handler = unauthorized_user_handler
+
+    @property
+    def logger(self):
+        return self.app.securest_logger
+
+    @logger.setter
+    def logger(self, logger):
+        self.app.securest_logger = logger
 
     def set_userstore_driver(self, userstore):
         """
@@ -73,7 +83,7 @@ class SecuREST(object):
                       'driver does not inherit "{1}"'\
                 .format(get_instance_class_fqn(userstore),
                         get_class_fqn(AbstractUserstore))
-            self.app.logger.error(err_msg)
+            self.app.securest_logger.error(err_msg)
             raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
@@ -92,7 +102,7 @@ class SecuREST(object):
                       'Error: provider does not inherit "{1}"'\
                 .format(get_instance_class_fqn(provider),
                         get_class_fqn(AbstractAuthenticationProvider))
-            self.app.logger.error(err_msg)
+            self.app.securest_logger.error(err_msg)
             raise Exception(err_msg)
 
         self.app.securest_authentication_providers.append(provider)
@@ -120,8 +130,8 @@ def auth_required(func):
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
             except Exception as e:
-                current_app.logger.debug('authentication failed, {0}'
-                                         .format(e))
+                current_app.securest_logger.debug('authentication failed, {0}'
+                                                  .format(e))
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -194,23 +204,23 @@ def authenticate(authentication_providers, auth_info):
     for auth_provider in authentication_providers:
         try:
             if userstore_driver:
-                current_app.logger.debug(
+                current_app.securest_logger.debug(
                     'attempting authentication with provider "{0}" '
                     'and userstore: "{1}"'.format(
                         get_instance_class_fqn(auth_provider),
                         get_instance_class_fqn(userstore_driver)))
             else:
-                current_app.logger.debug(
+                current_app.securest_logger.debug(
                     'attempting authentication with provider "{0}" and '
                     'without userstore'.format(
                         get_instance_class_fqn(auth_provider)))
 
             user = auth_provider.authenticate(
                 auth_info, userstore_driver)
-            current_app.logger.debug('authentication succeeded')
+            current_app.securest_logger.debug('authentication succeeded')
             break
         except Exception as e:
-            current_app.logger.debug('authentication failed, {0}'.format(e))
+            current_app.securest_logger.debug('authentication failed, {0}'.format(e))
             continue  # try the next authentication method until successful
 
     if not user:
