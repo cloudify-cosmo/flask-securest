@@ -20,7 +20,7 @@ def get_long_description():
     with open('README.md') as f:
         txt = f.read()
     return txt
-
+    
 
 setup(
     name='Flask-SecuREST',
