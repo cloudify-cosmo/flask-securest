@@ -37,7 +37,9 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
         self.crypt_ctx = _get_crypt_context(password_hash)
 
     def authenticate(self, auth_info, userstore):
-        # TODO the auth_info identity field be configurable?
+        if not auth_info.user_id or not auth_info.password:
+            raise Exception('username or password not found on request')
+
         user_id = auth_info.user_id
         user = userstore.get_user(user_id)
 
@@ -45,9 +47,7 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
             raise Exception('user not found')
         if not user.password:
             raise Exception('password is missing or empty')
-            # TODO maybe use verify_and_update()?
 
-        # TODO should the 'password' field in the user object be configurable?
         if not self.crypt_ctx.verify(auth_info.password, user.password):
             raise Exception('wrong password')
         if not user.is_active():
