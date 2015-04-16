@@ -220,7 +220,8 @@ def authenticate(authentication_providers, auth_info):
             current_app.securest_logger.debug('authentication succeeded')
             break
         except Exception as e:
-            current_app.securest_logger.debug('authentication failed, {0}'.format(e))
+            current_app.securest_logger.debug('authentication failed, {0}'
+                                              .format(e))
             continue  # try the next authentication method until successful
 
     if not user:
