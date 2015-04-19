@@ -20,15 +20,15 @@ def get_long_description():
     with open('README.md') as f:
         txt = f.read()
     return txt
-    
+
 
 setup(
     name='Flask-SecuREST',
     version='0.5',
     url='https://github.com/cloudify-cosmo/flask-securest/',
     license='LICENSE',
-    author='Noa Kuperberg',
-    author_email='noak@gigaspaces.com',
+    author='cosmo-admin',
+    author_email='cosmo-admin@gigaspaces.com',
     description='Simple framework for securing Flask REST applications',
     long_description=get_long_description(),
     packages=['flask_securest',

@@ -13,8 +13,9 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from functools import wraps
+import StringIO
 
 from flask import (current_app,
                    abort,
@@ -29,7 +30,7 @@ from authentication_providers.abstract_authentication_provider \
 
 AUTH_HEADER_NAME = 'Authorization'
 AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
-
+BASIC_AUTH_PREFIX = 'Basic'
 SECURED_MODE = 'SECUREST_MODE'
 
 
@@ -39,8 +40,9 @@ class SecuREST(object):
         self.app = app
 
         self.app.config[SECURED_MODE] = True
+        self.app.securest_logger = None
         self.app.securest_unauthorized_user_handler = None
-        self.app.securest_authentication_providers = []
+        self.app.securest_authentication_providers = OrderedDict()
         self.app.securest_userstore_driver = None
         self.app.request_security_bypass_handler = None
 
@@ -60,8 +62,16 @@ class SecuREST(object):
         return self.app.securest_unauthorized_user_handler
 
     @unauthorized_user_handler.setter
-    def unauthorized_user_handler(self, unauthorized_user_handler):
-        self.app.securest_unauthorized_user_handler = unauthorized_user_handler
+    def unauthorized_user_handler(self, value):
+        self.app.securest_unauthorized_user_handler = value
+
+    @property
+    def logger(self):
+        return self.app.securest_logger
+
+    @logger.setter
+    def logger(self, logger):
+        self.app.securest_logger = logger
 
     def set_userstore_driver(self, userstore):
         """
@@ -73,12 +83,12 @@ class SecuREST(object):
                       'driver does not inherit "{1}"'\
                 .format(get_instance_class_fqn(userstore),
                         get_class_fqn(AbstractUserstore))
-            self.app.logger.error(err_msg)
+            log(self.app.securest_logger, 'critical', err_msg)
             raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
 
-    def register_authentication_provider(self, provider):
+    def register_authentication_provider(self, name, provider):
         """
         Registers the given authentication method.
         :param provider: appends the given authentication provider to the list
@@ -92,10 +102,10 @@ class SecuREST(object):
                       'Error: provider does not inherit "{1}"'\
                 .format(get_instance_class_fqn(provider),
                         get_class_fqn(AbstractAuthenticationProvider))
-            self.app.logger.error(err_msg)
+            log(self.app.securest_logger, 'critical', err_msg)
             raise Exception(err_msg)
 
-        self.app.securest_authentication_providers.append(provider)
+        self.app.securest_authentication_providers[name] = provider
 
 
 def validate_configuration():
@@ -120,8 +130,9 @@ def auth_required(func):
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
             except Exception as e:
-                current_app.logger.debug('authentication failed, {0}'
-                                         .format(e))
+                err_msg = 'User unauthorized, all authentication methods ' \
+                          'failed: {0}'.format(e)
+                log(current_app.securest_logger, 'error', err_msg)
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -169,7 +180,7 @@ def get_auth_info_from_request():
                         .format(auth_header_name, auth_token_header_name))
 
     if auth_header:
-        auth_header = auth_header.replace('Basic ', '', 1)
+        auth_header = auth_header.replace(BASIC_AUTH_PREFIX + ' ', '', 1)
         try:
             from itsdangerous import base64_decode
             api_key = base64_decode(auth_header)
@@ -189,32 +200,24 @@ def get_auth_info_from_request():
 
 def authenticate(authentication_providers, auth_info):
     user = None
+    all_exceptions = StringIO.StringIO()
 
     userstore_driver = current_app.securest_userstore_driver
-    for auth_provider in authentication_providers:
+    for auth_method, auth_provider in authentication_providers.iteritems():
         try:
-            if userstore_driver:
-                current_app.logger.debug(
-                    'attempting authentication with provider "{0}" '
-                    'and userstore: "{1}"'.format(
-                        get_instance_class_fqn(auth_provider),
-                        get_instance_class_fqn(userstore_driver)))
-            else:
-                current_app.logger.debug(
-                    'attempting authentication with provider "{0}" and '
-                    'without userstore'.format(
-                        get_instance_class_fqn(auth_provider)))
-
             user = auth_provider.authenticate(
                 auth_info, userstore_driver)
-            current_app.logger.debug('authentication succeeded')
+            msg = 'user "{0}" authenticated successfully, authentication' \
+                  ' provider: {1}'.format(user.username, auth_method)
+            log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
-            current_app.logger.debug('authentication failed, {0}'.format(e))
+            all_exceptions.write('\n{0} authentication failed: {1}'
+                                 .format(auth_method, e))
             continue  # try the next authentication method until successful
 
     if not user:
-        raise Exception('Unauthorized')
+        raise Exception(all_exceptions.getvalue())
 
     set_request_user(user)
 
@@ -232,6 +235,12 @@ def get_request_user():
 
 def set_request_user(user):
     _get_request_context().user = user
+
+
+def log(logger, method, message):
+    if logger:
+        logging_method = getattr(logger, method)
+        logging_method(message)
 
 
 def get_instance_class_fqn(instance):
