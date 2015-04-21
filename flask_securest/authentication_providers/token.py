@@ -26,10 +26,10 @@ USERNAME_FIELD = 'username'
 
 class TokenAuthenticator(AbstractAuthenticationProvider):
 
-    def __init__(self, secret_key, expires_in=600):
+    def __init__(self, secret_key, expires_in_seconds=600):
         self._secret_key = secret_key
         self._serializer = TimedJSONWebSignatureSerializer(self._secret_key,
-                                                           expires_in)
+                                                           expires_in_seconds)
 
     def generate_auth_token(self):
         return self._serializer.dumps(
