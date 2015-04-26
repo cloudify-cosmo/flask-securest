@@ -131,9 +131,7 @@ def auth_required(func):
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
             except Exception as e:
-                err_msg = 'User unauthorized, all authentication methods ' \
-                          'failed: {0}'.format(e)
-                utils.log(current_app.securest_logger, 'error', err_msg)
+                utils.log(current_app.securest_logger, 'error', e)
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -215,7 +213,7 @@ def get_request_origin():
 
 def authenticate(authentication_providers, auth_info):
     user = None
-    all_exceptions = StringIO.StringIO()
+    error_msg = StringIO.StringIO()
 
     request_origin = get_request_origin()
     userstore_driver = current_app.securest_userstore_driver
@@ -230,13 +228,17 @@ def authenticate(authentication_providers, auth_info):
             utils.log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
-            all_exceptions.write('\n{0} authentication failed: {1}; user '
-                                 'tried to login from host {2}'
-                                 .format(auth_method, e, request_origin))
+            if not error_msg:
+                error_msg.write('User unauthorized; '
+                                'user tried to login from host {0};'
+                                '\nall authentication methods failed:'
+                                .format(request_origin))
+            error_msg.write('\n{0} authenticator: {1}'
+                            .format(auth_method, e))
             continue  # try the next authentication method until successful
 
     if not user:
-        raise Exception(all_exceptions.getvalue())
+        raise Exception(error_msg.getvalue())
 
     set_request_user(user)
 
