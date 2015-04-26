@@ -228,7 +228,7 @@ def authenticate(authentication_providers, auth_info):
             utils.log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
-            if not error_msg:
+            if not error_msg.getvalue():
                 error_msg.write('User unauthorized; '
                                 'user tried to login from host {0};'
                                 '\nall authentication methods failed:'

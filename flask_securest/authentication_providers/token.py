@@ -38,7 +38,7 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
     def authenticate(self, auth_info, userstore):
         token = auth_info.token
         if not token:
-            raise Exception('token is missing or empty')
+            raise Exception('token not found on request')
 
         try:
             open_token = self._serializer.loads(token)
