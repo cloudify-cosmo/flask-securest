@@ -175,8 +175,8 @@ def get_auth_info_from_request():
         token = request.headers.get(auth_token_header_name)
 
     if not auth_header and not token:
-        raise Exception('Failed to get authentication information from '
-                        'request, headers not found: {0}, {1}'
+        raise Exception('Authentication information not found on request, '
+                        'searched for headers: {0}, {1}'
                         .format(auth_header_name, auth_token_header_name))
 
     if auth_header:
@@ -207,6 +207,7 @@ def authenticate(authentication_providers, auth_info):
         try:
             user = auth_provider.authenticate(
                 auth_info, userstore_driver)
+
             msg = 'user "{0}" authenticated successfully, authentication' \
                   ' provider: {1}'.format(user.username, auth_method)
             log(current_app.securest_logger, 'info', msg)

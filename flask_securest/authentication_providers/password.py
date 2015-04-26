@@ -44,7 +44,7 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
         user = userstore.get_user(user_id)
 
         if not user:
-            raise Exception('user not found')
+            raise Exception('user "{0}" not found'.format(user_id))
         if not user.password:
             raise Exception('password is missing or empty')
 
