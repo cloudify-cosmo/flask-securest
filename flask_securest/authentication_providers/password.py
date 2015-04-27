@@ -14,7 +14,8 @@
 #  * limitations under the License.
 
 from passlib.context import CryptContext
-from abstract_authentication_provider import AbstractAuthenticationProvider
+from flask_securest.authentication_providers.abstract_authentication_provider \
+    import AbstractAuthenticationProvider
 
 DEFAULT_PASSWORD_HASH = 'plaintext'
 

@@ -13,9 +13,9 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
+import StringIO
 from collections import namedtuple, OrderedDict
 from functools import wraps
-import StringIO
 
 from flask import (current_app,
                    abort,
@@ -23,8 +23,9 @@ from flask import (current_app,
                    _request_ctx_stack)
 from flask_restful import Resource
 
-from userstores.abstract_userstore import AbstractUserstore
-from authentication_providers.abstract_authentication_provider \
+from flask_securest import utils
+from flask_securest.userstores.abstract_userstore import AbstractUserstore
+from flask_securest.authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
 
 
@@ -81,9 +82,9 @@ class SecuREST(object):
         if not isinstance(userstore, AbstractUserstore):
             err_msg = 'failed to register userstore driver "{0}", Error: ' \
                       'driver does not inherit "{1}"'\
-                .format(get_instance_class_fqn(userstore),
-                        get_class_fqn(AbstractUserstore))
-            log(self.app.securest_logger, 'critical', err_msg)
+                .format(utils.get_instance_class_fqn(userstore),
+                        utils.get_class_fqn(AbstractUserstore))
+            _log(self.app.securest_logger, 'critical', err_msg)
             raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
@@ -100,9 +101,9 @@ class SecuREST(object):
         if not isinstance(provider, AbstractAuthenticationProvider):
             err_msg = 'failed to register authentication provider "{0}", ' \
                       'Error: provider does not inherit "{1}"'\
-                .format(get_instance_class_fqn(provider),
-                        get_class_fqn(AbstractAuthenticationProvider))
-            log(self.app.securest_logger, 'critical', err_msg)
+                .format(utils.get_instance_class_fqn(provider),
+                        utils.get_class_fqn(AbstractAuthenticationProvider))
+            _log(self.app.securest_logger, 'critical', err_msg)
             raise Exception(err_msg)
 
         self.app.securest_authentication_providers[name] = provider
@@ -130,9 +131,7 @@ def auth_required(func):
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
             except Exception as e:
-                err_msg = 'User unauthorized, all authentication methods ' \
-                          'failed: {0}'.format(e)
-                log(current_app.securest_logger, 'error', err_msg)
+                _log(current_app.securest_logger, 'error', e)
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -198,27 +197,43 @@ def get_auth_info_from_request():
     return auth_info(user_id, password, token)
 
 
+def get_request_origin():
+    request_origin_ip = request.remote_addr
+    if request_origin_ip:
+        request_origin = '[{0}]'.format(request_origin_ip)
+    else:
+        request_origin = '[unknown]'
+    return request_origin
+
+
 def authenticate(authentication_providers, auth_info):
     user = None
-    all_exceptions = StringIO.StringIO()
+    error_msg = StringIO.StringIO()
 
+    request_origin = get_request_origin()
     userstore_driver = current_app.securest_userstore_driver
     for auth_method, auth_provider in authentication_providers.iteritems():
         try:
             user = auth_provider.authenticate(
                 auth_info, userstore_driver)
 
-            msg = 'user "{0}" authenticated successfully, authentication' \
-                  ' provider: {1}'.format(user.username, auth_method)
-            log(current_app.securest_logger, 'info', msg)
+            msg = 'user "{0}" authenticated successfully from host {1}, ' \
+                  'authentication provider: {2}'\
+                .format(user.username, request_origin, auth_method)
+            _log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
-            all_exceptions.write('\n{0} authentication failed: {1}'
-                                 .format(auth_method, e))
+            if not error_msg.getvalue():
+                error_msg.write('User unauthorized; '
+                                'user tried to login from host {0};'
+                                '\nall authentication methods failed:'
+                                .format(request_origin))
+            error_msg.write('\n{0} authenticator: {1}'
+                            .format(auth_method, e))
             continue  # try the next authentication method until successful
 
     if not user:
-        raise Exception(all_exceptions.getvalue())
+        raise Exception(error_msg.getvalue())
 
     set_request_user(user)
 
@@ -238,19 +253,10 @@ def set_request_user(user):
     _get_request_context().user = user
 
 
-def log(logger, method, message):
+def _log(logger, method, message):
     if logger:
         logging_method = getattr(logger, method)
         logging_method(message)
-
-
-def get_instance_class_fqn(instance):
-    instance_cls = instance.__class__
-    return instance_cls.__module__ + '.' + instance_cls.__name__
-
-
-def get_class_fqn(clazz):
-    return clazz.__module__ + '.' + clazz.__name__
 
 
 class SecuredResource(Resource):
