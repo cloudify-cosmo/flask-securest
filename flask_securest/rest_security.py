@@ -84,7 +84,7 @@ class SecuREST(object):
                       'driver does not inherit "{1}"'\
                 .format(utils.get_instance_class_fqn(userstore),
                         utils.get_class_fqn(AbstractUserstore))
-            utils.log(self.app.securest_logger, 'critical', err_msg)
+            _log(self.app.securest_logger, 'critical', err_msg)
             raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
@@ -103,7 +103,7 @@ class SecuREST(object):
                       'Error: provider does not inherit "{1}"'\
                 .format(utils.get_instance_class_fqn(provider),
                         utils.get_class_fqn(AbstractAuthenticationProvider))
-            utils.log(self.app.securest_logger, 'critical', err_msg)
+            _log(self.app.securest_logger, 'critical', err_msg)
             raise Exception(err_msg)
 
         self.app.securest_authentication_providers[name] = provider
@@ -131,7 +131,7 @@ def auth_required(func):
                 authenticate(current_app.securest_authentication_providers,
                              auth_info)
             except Exception as e:
-                utils.log(current_app.securest_logger, 'error', e)
+                _log(current_app.securest_logger, 'error', e)
                 handle_unauthorized_user()
             result = func(*args, **kwargs)
             return filter_results(result)
@@ -220,7 +220,7 @@ def authenticate(authentication_providers, auth_info):
             msg = 'user "{0}" authenticated successfully from host {1}, ' \
                   'authentication provider: {2}'\
                 .format(user.username, request_origin, auth_method)
-            utils.log(current_app.securest_logger, 'info', msg)
+            _log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
             if not error_msg.getvalue():
@@ -251,6 +251,12 @@ def get_request_user():
 
 def set_request_user(user):
     _get_request_context().user = user
+
+
+def _log(logger, method, message):
+    if logger:
+        logging_method = getattr(logger, method)
+        logging_method(message)
 
 
 class SecuredResource(Resource):
