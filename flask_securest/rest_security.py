@@ -200,12 +200,7 @@ def get_auth_info_from_request():
 def get_request_origin():
     request_origin_ip = request.remote_addr
     if request_origin_ip:
-        try:
-            request_origin_host = utils.get_hostname_by_ip(request_origin_ip)
-            request_origin = '[{0}/{1}]'.format(request_origin_host,
-                                                request_origin_ip)
-        except:
-            request_origin = '[{0}]'.format(request_origin_ip)
+        request_origin = '[{0}]'.format(request_origin_ip)
     else:
         request_origin = '[unknown]'
     return request_origin
