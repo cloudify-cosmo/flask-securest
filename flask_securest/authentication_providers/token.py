@@ -49,10 +49,11 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
 
         username = open_token.get(USERNAME_FIELD)
         if not username:
-            raise Exception('invalid token')
+            raise Exception('username not found in token')
 
         user = userstore.get_user(username)
         if not user:
-            raise Exception('user not found')
+            raise Exception('failed to authenticate user "{0}", user not found'
+                            .format(username))
 
         return user

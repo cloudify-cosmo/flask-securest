@@ -45,14 +45,18 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
         user = userstore.get_user(user_id)
 
         if not user:
-            raise Exception('user "{0}" not found'.format(user_id))
+            raise Exception('failed to authenticate user "{0}", user not found'
+                            .format(user_id))
         if not user.password:
-            raise Exception('password is missing or empty')
+            raise Exception('failed to authenticate user "{0}", password not '
+                            'found on user object'.format(user_id))
 
         if not self.crypt_ctx.verify(auth_info.password, user.password):
-            raise Exception('wrong password')
+            raise Exception('failed to authenticate user "{0}", wrong password'
+                            .format(user_id))
         if not user.is_active():
-            raise Exception('user not active')
+            raise Exception('failed to authenticate user "{0}", user not '
+                            'active'.format(user_id))
 
         return user
 
