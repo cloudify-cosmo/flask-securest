@@ -13,7 +13,6 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import os.path
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
 from flask.ext.securest.models import User, Role
 
@@ -21,8 +20,6 @@ USERNAME = 'username'
 PASSWORD = 'password'
 EMAIL = 'email'
 ROLES = 'roles'
-
-RESOURCES_PATH = os.path.dirname(__file__) + '/../resources'
 
 
 class SimpleUserstore(AbstractUserstore):
