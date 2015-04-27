@@ -151,8 +151,6 @@ def handle_unauthorized_user():
     if current_app.securest_unauthorized_user_handler:
         current_app.securest_unauthorized_user_handler()
     else:
-        # TODO verify this ends up in resources.abort_error
-        # TODO do this? from flask_restful import abort
         abort(401)
 
 
