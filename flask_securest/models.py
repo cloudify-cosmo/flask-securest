@@ -40,7 +40,8 @@ class User(UserModel):
     """ This is a specific implementation of the UserModel. An implementation
     of the UserModel should be returned by authentication providers.
     This implementation is used by the OOTB 'Simple' userstore and available
-    for additional implementations that might be added by users of this framework."""
+    for additional implementations that might be added by users of this
+    framework."""
 
     def __init__(self, username, password, email=None, active=True):
         self._username = username
