@@ -17,28 +17,10 @@
 NOT_IMPLEMENTED_MESSAGE = '"{0}" not implemented on {1}'
 
 
-class RoleModel(object):
-
-    def __init__(self):
-        pass
-
-    @property
-    def name(self):
-        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE
-                                  .format('name', get_runtime_class_fqn(self)))
-
-
-class Role(RoleModel):
-
-    def __init__(self, name):
-        self._name = name
-
-    @property
-    def name(self):
-        return self._name
-
-
 class UserModel(object):
+    """ An implementation of the this class should be returned by
+    authentication providers.
+    """
 
     def __init__(self):
         pass
@@ -53,19 +35,17 @@ class UserModel(object):
                                   .format('is_anonymous',
                                           get_runtime_class_fqn(self)))
 
-    def get_roles(self):
-        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE
-                                  .format('get_roles',
-                                          get_runtime_class_fqn(self)))
-
 
 class User(UserModel):
+    """ This is a specific implementation of the UserModel. An implementation
+    of the UserModel should be returned by authentication providers.
+    This implementation is used by the OOTB 'Simple' userstore and available
+    for additional implementations that might be added by users of this framework."""
 
-    def __init__(self, username, password, email=None, roles=[], active=True):
+    def __init__(self, username, password, email=None, active=True):
         self._username = username
         self._password = password
         self._email = email
-        self._roles = roles
         self._active = active
 
     # Overriding super abstract methods
@@ -74,9 +54,6 @@ class User(UserModel):
 
     def is_anonymous(self):
         return False
-
-    # def get_roles(self):
-    #     return (role.name for role in self._roles)
 
     # additional properties
     @property

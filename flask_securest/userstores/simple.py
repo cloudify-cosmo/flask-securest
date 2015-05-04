@@ -14,12 +14,11 @@
 #  * limitations under the License.
 
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
-from flask.ext.securest.models import User, Role
+from flask.ext.securest.models import User
 
 USERNAME = 'username'
 PASSWORD = 'password'
 EMAIL = 'email'
-ROLES = 'roles'
 
 
 class SimpleUserstore(AbstractUserstore):
@@ -44,11 +43,5 @@ class SimpleUserstore(AbstractUserstore):
 
     @staticmethod
     def _create_user_object(user_dict):
-        roles = []
-
-        if ROLES in user_dict:
-            for role_name in user_dict[ROLES]:
-                roles.append(Role(role_name))
-
         return User(user_dict[USERNAME], user_dict[PASSWORD],
-                    user_dict[EMAIL], roles, active=True)
+                    user_dict[EMAIL], active=True)
