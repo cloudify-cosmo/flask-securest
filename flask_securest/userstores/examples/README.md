@@ -1,0 +1,1 @@
+# This folder contains user store implementations examples, not official.
