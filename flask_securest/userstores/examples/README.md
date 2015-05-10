@@ -1,1 +1,1 @@
-# This folder contains user store implementations examples, not official.
+# This folder contains user store implementation examples, not official implementations.
