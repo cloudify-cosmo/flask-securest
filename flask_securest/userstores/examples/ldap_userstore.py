@@ -21,8 +21,8 @@ from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
 
 class LDAPUserstore(AbstractUserstore):
     """
-    This class is an example of a concrete implementation of a user store.
-    It implements an LDAP user store.
+    This class is an example implementation of an LDAP user store.
+    It is for demonstration purposes only- not an official user store!
     """
 
     def __init__(self,
