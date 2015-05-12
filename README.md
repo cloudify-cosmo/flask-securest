@@ -50,8 +50,7 @@ the client receives an "Unauthorized User" error.
 ### Custom UserStore Implementation
 
 A valid userstore implementation can be any Python class that inherits from
-[abstract_userstore.py](https://github.com/cloudify-cosmo/flask-securest/blob/master/flask_securest/userstores/
-abstract_userstore.py) and implements: 
+[AbstractUserstore](https://github.com/cloudify-cosmo/flask-securest/blob/readme-file/flask_securest/userstores/abstract_userstore.py#L19) and implements: 
 
 - get_user() - returns a relevant user from the userstore. If a matching user is not found, returns None.<br>
   The object returned by `get_user` must adhere to Flask-secuREST's [User Model](https://github.com/cloudify-cosmo/flask-securest/blob/master/flask_securest/models.py#L41).
@@ -62,8 +61,7 @@ An example for a userstore class based on LDAP - [LDAPUserStore](https://github.
 ### Custom authentication provider Implementation
 
 A valid authentication provider implementation can be any Python class that inherits from
-[AbstractAuthenticationProvider](https://github.com/cloudify-cosmo/flask-securest/blob/master/flask_securest/
-authentication_providers/abstract_authentication_provider.py) and implements an `authenticate` method.
+[AbstractAuthenticationProvider](https://github.com/cloudify-cosmo/flask-securest/blob/readme-file/flask_securest/authentication_providers/abstract_authentication_provider.py#L19) and implements an `authenticate` method.
 
 >
 An example for authentication provider based on password authentication - [PasswordAuthenticator](https://github.com/cloudify-cosmo/flask-securest/blob/master/flask_securest/authentication_providers/password.py)
