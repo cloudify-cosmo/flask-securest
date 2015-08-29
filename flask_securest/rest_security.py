@@ -20,19 +20,24 @@ from functools import wraps
 from flask import (current_app,
                    abort,
                    request,
-                   _request_ctx_stack)
+                   g as flask_request_globals)
 from flask_restful import Resource
 
 from flask_securest import utils
+from flask_securest.exceptions import FlaskSecuRESTException, \
+    AuthenticationException, AuthorizationException
 from flask_securest.userstores.abstract_userstore import AbstractUserstore
 from flask_securest.authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
+from flask_securest.authorization_providers.abstract_authorization_provider \
+    import AbstractAuthorizationProvider
 
 
-AUTH_HEADER_NAME = 'Authorization'
-AUTH_TOKEN_HEADER_NAME = 'Authentication-Token'
-BASIC_AUTH_PREFIX = 'Basic'
-SECURED_MODE = 'SECUREST_MODE'
+SECURED_MODE = 'app_secured'
+SECURITY_CTX_HTTP_METHOD = 'http_method'
+SECURITY_CTX_ENDPOINT = 'endpoint'
+SECURITY_CTX_USERNAME = 'username'
+SECURITY_CTX_PRINCIPALS = 'principals'
 
 
 class SecuREST(object):
@@ -44,19 +49,20 @@ class SecuREST(object):
         self.app.securest_logger = None
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = OrderedDict()
+        self.app.securest_authorization_provider = None
         self.app.securest_userstore_driver = None
-        self.app.request_security_bypass_handler = None
+        self.app.skip_auth_hook = None
 
-        self.app.before_first_request(validate_configuration)
-        self.app.after_request(filter_response_if_needed)
+        self.app.before_first_request(_validate_configuration)
+        self.app.before_request(_clean_security_context)
 
     @property
-    def request_security_bypass_handler(self):
-        return self.app.request_security_bypass_handler
+    def skip_auth_hook(self):
+        return self.app.skip_auth_hook
 
-    @request_security_bypass_handler.setter
-    def request_security_bypass_handler(self, value):
-        self.app.request_security_bypass_handler = value
+    @skip_auth_hook.setter
+    def skip_auth_hook(self, value):
+        self.app.skip_auth_hook = value
 
     @property
     def unauthorized_user_handler(self):
@@ -74,7 +80,12 @@ class SecuREST(object):
     def logger(self, logger):
         self.app.securest_logger = logger
 
-    def set_userstore_driver(self, userstore):
+    @property
+    def userstore_driver(self):
+        return self.app.securest_userstore_driver
+
+    @userstore_driver.setter
+    def userstore_driver(self, userstore):
         """
         Registers the given userstore driver.
         :param userstore: the userstore driver to be set
@@ -85,7 +96,7 @@ class SecuREST(object):
                 .format(utils.get_instance_class_fqn(userstore),
                         utils.get_class_fqn(AbstractUserstore))
             _log(self.app.securest_logger, 'critical', err_msg)
-            raise Exception(err_msg)
+            raise FlaskSecuRESTException(err_msg)
 
         self.app.securest_userstore_driver = userstore
 
@@ -104,22 +115,43 @@ class SecuREST(object):
                 .format(utils.get_instance_class_fqn(provider),
                         utils.get_class_fqn(AbstractAuthenticationProvider))
             _log(self.app.securest_logger, 'critical', err_msg)
-            raise Exception(err_msg)
+            raise FlaskSecuRESTException(err_msg)
 
         self.app.securest_authentication_providers[name] = provider
 
+    @property
+    def authorization_provider(self):
+        return self.app.securest_authorization_provider
 
-def validate_configuration():
+    @authorization_provider.setter
+    def authorization_provider(self, provider):
+        """
+        Registers the given authorization provider.
+        :param provider: the authorization provider to be set
+        """
+        if not isinstance(provider, AbstractAuthorizationProvider):
+            err_msg = 'failed to register authorization provider "{0}", ' \
+                      'Error: provider does not inherit "{1}"' \
+                .format(utils.get_instance_class_fqn(provider),
+                        utils.get_class_fqn(AbstractAuthorizationProvider))
+            _log(self.app.securest_logger, 'critical', err_msg)
+            raise FlaskSecuRESTException(err_msg)
+
+        self.app.securest_authorization_provider = provider
+
+
+def _validate_configuration():
     if not current_app.securest_authentication_providers:
-        raise Exception('authentication providers not set')
+        raise FlaskSecuRESTException('authentication providers not set')
 
 
-def filter_response_if_needed(response=None):
-    return response
-
-
-def filter_results(results):
-    return results
+def _clean_security_context():
+    flask_request_globals.security_context = {
+        SECURITY_CTX_HTTP_METHOD: None,
+        SECURITY_CTX_ENDPOINT: None,
+        SECURITY_CTX_USERNAME: None,
+        SECURITY_CTX_PRINCIPALS: None
+    }
 
 
 def auth_required(func):
@@ -127,22 +159,26 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if _is_secured_request_context():
             try:
+                _set_security_context_value(SECURITY_CTX_ENDPOINT,
+                                            request.endpoint)
+                _set_security_context_value(SECURITY_CTX_HTTP_METHOD,
+                                            request.method)
                 authenticate()
+                if current_app.securest_authorization_provider:
+                    authorize()
             except Exception as e:
                 _log(current_app.securest_logger, 'error', e)
                 handle_unauthorized_user()
-            result = func(*args, **kwargs)
-            return filter_results(result)
+            return func(*args, **kwargs)
         else:
-            # rest security is turned off
             return func(*args, **kwargs)
     return wrapper
 
 
 def _is_secured_request_context():
     return current_app.config.get(SECURED_MODE) and not \
-        (current_app.request_security_bypass_handler and
-         current_app.request_security_bypass_handler(request))
+        (current_app.skip_auth_hook and
+         current_app.skip_auth_hook(request))
 
 
 def handle_unauthorized_user():
@@ -162,19 +198,21 @@ def get_request_origin():
 
 
 def authenticate():
-    user = None
+    username = None
     error_msg = StringIO.StringIO()
     request_origin = get_request_origin()
     userstore_driver = current_app.securest_userstore_driver
     authentication_providers = current_app.securest_authentication_providers
     for auth_method, auth_provider in authentication_providers.iteritems():
         try:
-            user = auth_provider.authenticate(userstore_driver)
+            username = auth_provider.authenticate(userstore_driver)
+            if not username:
+                raise AuthenticationException('return username is empty')
             # TODO the user obj might not have a 'username' field,
             # we should use smarter logging
             msg = 'user "{0}" authenticated successfully from host {1}, ' \
                   'authentication provider: {2}'\
-                .format(user['username'], request_origin, auth_method)
+                .format(username, request_origin, auth_method)
             _log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
@@ -187,25 +225,60 @@ def authenticate():
                             .format(auth_method, e))
             continue  # try the next authentication method until successful
 
-    if not user:
-        raise Exception(error_msg.getvalue())
+    if not username:
+        raise AuthenticationException(error_msg.getvalue())
 
-    set_request_user(user)
-
-
-def _get_request_context():
-    request_ctx = _request_ctx_stack.top
-    if request_ctx is None:
-        raise RuntimeError('working outside of request context')
-    return request_ctx
+    _set_security_context_value(SECURITY_CTX_USERNAME, username)
+    _set_security_context_value(SECURITY_CTX_PRINCIPALS,
+                                _get_all_principals_for_current_user())
 
 
-def get_request_user():
-    return getattr(_get_request_context(), 'user')
+def authorize():
+    authorization_provider = current_app.securest_authorization_provider
+    is_authorized = authorization_provider.authorize()
+    if is_authorized:
+        msg = 'user "{0}" is authorized to call {1} on {2}'.format(
+            get_username(), get_http_method(), get_endpoint())
+        _log(current_app.securest_logger, 'info', msg)
+    else:
+        raise AuthorizationException('User {0} is not authorized to call {1}'
+                                     ' on {2}'.format(get_username(),
+                                                      get_http_method(),
+                                                      get_endpoint()))
 
 
-def set_request_user(user):
-    _get_request_context().user = user
+def _get_all_principals_for_current_user():
+    if current_app.securest_userstore_driver:
+        principals_list = current_app.securest_userstore_driver.\
+            get_all_principals_for_user(get_username())
+    else:
+        principals_list = get_username()
+
+    return principals_list
+
+
+def _get_security_context_value(key):
+    return flask_request_globals.security_context.get(key)
+
+
+def _set_security_context_value(key, value):
+    flask_request_globals.security_context[key] = value
+
+
+def get_username():
+    return _get_security_context_value(SECURITY_CTX_USERNAME)
+
+
+def get_endpoint():
+    return _get_security_context_value(SECURITY_CTX_ENDPOINT)
+
+
+def get_http_method():
+    return _get_security_context_value(SECURITY_CTX_HTTP_METHOD)
+
+
+def get_principals_list():
+    return _get_security_context_value(SECURITY_CTX_PRINCIPALS)
 
 
 def _log(logger, method, message):

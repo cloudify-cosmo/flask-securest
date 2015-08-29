@@ -18,9 +18,9 @@ from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
 
 class SimpleUserstore(AbstractUserstore):
 
-    def __init__(self, userstore, identifying_attribute):
-        self._identifying_attribute = identifying_attribute
-        self.users = userstore
+    def __init__(self, userstore):
+        self.users = userstore['users']
+        self.groups = userstore.get('groups')
 
     def get_user(self, username):
         if not username:
@@ -28,10 +28,37 @@ class SimpleUserstore(AbstractUserstore):
 
         return self.find_user(username) or {}
 
+    def get_all_principals_for_user(self, user_identifier):
+        principals = []
+        user_entry = self.find_user(user_identifier)
+        if user_entry:
+            principals.append(user_identifier)
+            groups = user_entry.get('groups')
+            if groups:
+                for group in user_entry.get('groups'):
+                    principals.append(group)
+
+        return principals
+
+    def get_roles(self, principal_name):
+        all_roles = set()
+        principal_entry = self.find_principal(principal_name)
+        if principal_entry:
+            for role in principal_entry.get('roles', []):
+                all_roles.add(role)
+        return all_roles
+
     def find_user(self, username):
-        matching_entry = None
-        for user_entry in self.users.itervalues():
-            if user_entry.get(self._identifying_attribute) == username:
-                matching_entry = user_entry
-                break
-        return matching_entry
+        return next((entry for entry in self.users
+                    if entry['username'] == username),
+                    None)
+
+    def find_group(self, group_name):
+        return next((entry for entry in self.groups
+                    if entry['name'] == group_name),
+                    None)
+
+    def find_principal(self, principal_name):
+        return \
+            self.find_user(principal_name) or \
+            self.find_group(principal_name)

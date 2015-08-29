@@ -16,17 +16,15 @@
 import abc
 
 
-class AbstractAuthenticationProvider(object):
+class AbstractRoleLoader(object):
     """
     This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
-    to return the username (or another uniquely identifying value)
-    which will be logged
+    implementations of role loaders.
+    The only mandatory implementation is of get_roles, which is expected
     """
 
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def authenticate(self, userstore=None):
+    def get_roles(self):
         raise NotImplementedError

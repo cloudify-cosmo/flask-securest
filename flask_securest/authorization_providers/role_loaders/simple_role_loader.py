@@ -13,20 +13,21 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import abc
+from flask import current_app
+
+from flask.ext.securest.authorization_providers.role_loaders.\
+    abstract_role_loader import AbstractRoleLoader
+from flask_securest import rest_security
 
 
-class AbstractAuthenticationProvider(object):
-    """
-    This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
-    to return the username (or another uniquely identifying value)
-    which will be logged
-    """
+class SimpleRoleLoader(AbstractRoleLoader):
 
-    __metaclass__ = abc.ABCMeta
+    def get_roles(self):
+        userstore = current_app.securest_userstore_driver
+        principals = rest_security.get_principals_list() or {}
+        roles = set()
+        for principal in principals:
+            for role in userstore.get_roles(principal) or []:
+                roles.add(role)
 
-    @abc.abstractmethod
-    def authenticate(self, userstore=None):
-        raise NotImplementedError
+        return roles
