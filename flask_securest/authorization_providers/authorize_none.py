@@ -13,19 +13,14 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import abc
+from flask_securest.authorization_providers.abstract_authorization_provider \
+    import AbstractAuthorizationProvider
 
 
-class AbstractAuthenticationProvider(object):
-    """
-    This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
-    to return true/false
-    """
+class AuthorizeNone(AbstractAuthorizationProvider):
+    def __init__(self):
+        pass
 
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def authenticate(self, userstore=None):
-        raise NotImplementedError
+    def authorize(self, userstore_driver=None, user_id=None, endpoint=None,
+                  http_method=None):
+        return False
