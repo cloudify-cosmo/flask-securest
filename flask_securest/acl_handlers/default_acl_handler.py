@@ -13,19 +13,15 @@
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
 
-import abc
+from flask_securest.acl_handlers.abstract_acl_handler import AbstractACLHandler
+
+SECURITY_CTX_USER = 'user'
 
 
-class AbstractAuthenticationProvider(object):
-    """
-    This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
-    to return true/false
-    """
+class DefaultACLHandler(AbstractACLHandler):
 
-    __metaclass__ = abc.ABCMeta
+    def __init__(self):
+        pass
 
-    @abc.abstractmethod
-    def authenticate(self, userstore=None):
-        raise NotImplementedError
+    def get_acl(self, security_context):
+        return ['ALLOW#{0}#ALL'.format(security_context[SECURITY_CTX_USER])]

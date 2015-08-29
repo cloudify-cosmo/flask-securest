@@ -14,41 +14,58 @@
 #  * limitations under the License.
 
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
-from flask.ext.securest.models import User, Role
-
-USERNAME = 'username'
-PASSWORD = 'password'
-EMAIL = 'email'
-ROLES = 'roles'
 
 
 class SimpleUserstore(AbstractUserstore):
 
-    def __init__(self, userstore, identifying_attribute):
-        self._identifying_attribute = identifying_attribute
-        self.users = userstore
+    def __init__(self, userstore):
+        self.users = userstore['users']
+        self.groups = userstore['groups']
 
-    def get_user(self, user_identifier):
-        user_obj = None
+    def get_user(self, username):
+        if not username:
+            raise ValueError('username is missing or empty')
 
-        if not user_identifier:
-            raise ValueError('user identifier is missing or empty')
+        return self.find_user(username) or {}
 
-        for user_entry in self.users.itervalues():
-            if user_entry.get(self._identifying_attribute) == user_identifier:
-                # a matching user was found, return as a User object
-                user_obj = SimpleUserstore._create_user_object(user_entry)
+    def get_all_principals_for_user(self, user_identifier):
+        principals = []
+        user_entry = self.find_user(user_identifier)
+        if user_entry:
+            principals.append(user_identifier)
+            groups = user_entry.get('groups')
+            if groups:
+                for group in user_entry.get('groups'):
+                    principals.append(group)
+
+        return principals
+
+    def get_roles(self, principal_name):
+        all_roles = set()
+        principal_entry = self.find_principal(principal_name)
+        if principal_entry:
+            for role in principal_entry.get('roles', []):
+                all_roles.add(role)
+        return all_roles
+
+    def find_user(self, username):
+        matching_entry = None
+        for user_entry in self.users:
+            if user_entry['username'] == username:
+                matching_entry = user_entry
                 break
+        return matching_entry
 
-        return user_obj
+    def find_group(self, group_name):
+        matching_entry = None
+        for group_entry in self.groups:
+            if group_entry['name'] == group_name:
+                matching_entry = group_entry
+                break
+        return matching_entry
 
-    @staticmethod
-    def _create_user_object(user_dict):
-        roles = []
-
-        if ROLES in user_dict:
-            for role_name in user_dict[ROLES]:
-                roles.append(Role(role_name))
-
-        return User(user_dict[USERNAME], user_dict[PASSWORD],
-                    user_dict[EMAIL], roles, active=True)
+    def find_principal(self, principal_name):
+        matching_entry = self.find_user(principal_name)
+        if matching_entry is None:
+            matching_entry = self.find_group(principal_name)
+        return matching_entry

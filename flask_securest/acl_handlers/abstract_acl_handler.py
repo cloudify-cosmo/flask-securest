@@ -16,16 +16,22 @@
 import abc
 
 
-class AbstractAuthenticationProvider(object):
+class AbstractACLHandler(object):
     """
     This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
-    to return true/false
+    implementations of ACL handlers.
+    The only mandatory implementation is of get_acl, which is expected
+    to return a string structured as:
+    ALLOW#principal#method
+
+    e.g.:
+    ALLOW#user1#POST
+    ALLOW#admin#ALL
+    ALLOW#ALL#GET
     """
 
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def authenticate(self, userstore=None):
+    def get_acl(self, userstore=None):
         raise NotImplementedError

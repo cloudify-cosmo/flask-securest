@@ -12,20 +12,3 @@
 #  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
-
-import abc
-
-
-class AbstractAuthenticationProvider(object):
-    """
-    This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
-    to return true/false
-    """
-
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def authenticate(self, userstore=None):
-        raise NotImplementedError

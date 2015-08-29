@@ -24,7 +24,7 @@ def get_long_description():
 
 setup(
     name='Flask-SecuREST',
-    version='0.6',
+    version='0.7',
     url='https://github.com/cloudify-cosmo/flask-securest/',
     license='LICENSE',
     author='cosmo-admin',
@@ -33,7 +33,9 @@ setup(
     long_description=get_long_description(),
     packages=['flask_securest',
               'flask_securest.authentication_providers',
-              'flask_securest.userstores'],
+              'flask_securest.authorization_providers',
+              'flask_securest.userstores',
+              'flask_securest.role_loaders'],
     zip_safe=False,
     install_requires=[
         'Flask>=0.9',
