@@ -42,18 +42,18 @@ class SecuREST(object):
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = OrderedDict()
         self.app.securest_userstore_driver = None
-        self.app.request_security_bypass_handler = None
+        self.app.skip_auth_hook = None
 
         self.app.before_first_request(validate_configuration)
         self.app.after_request(filter_response_if_needed)
 
     @property
-    def request_security_bypass_handler(self):
-        return self.app.request_security_bypass_handler
+    def skip_auth_hook(self):
+        return self.app.skip_auth_hook
 
-    @request_security_bypass_handler.setter
-    def request_security_bypass_handler(self, value):
-        self.app.request_security_bypass_handler = value
+    @skip_auth_hook.setter
+    def skip_auth_hook(self, value):
+        self.app.skip_auth_hook = value
 
     @property
     def unauthorized_user_handler(self):
@@ -137,33 +137,9 @@ def auth_required(func):
 
 
 def _is_secured_request_context():
-    with open('/tmp/rest_is_secured.log', 'w') as f:
-        f.write('in is_secured_request_context \n')
-        if current_app.config.get(SECURED_MODE):
-            f.write('mode: secured\n')
-        else:
-            f.write('mode: not secured\n')
-        have_bypass_handler = current_app.request_security_bypass_handler
-        if have_bypass_handler:
-            f.write('have bypass handler\n')
-        else:
-            f.write('no bypass handler set\n')
-        is_internal_request = current_app.request_security_bypass_handler(request)
-        if is_internal_request:
-            f.write('this is an internal request\n')
-        else:
-            f.write('this is an internal request\n')
-        is_secured_request = current_app.config.get(SECURED_MODE) and not \
-            (current_app.request_security_bypass_handler and
-             current_app.request_security_bypass_handler(request))
-        if is_secured_request:
-            f.write('this request is in a secured context, is must be authenticated\n')
-        else:
-            f.write('this request is Not in a secured context, is must Not be authenticated\n')
-
     return current_app.config.get(SECURED_MODE) and not \
-        (current_app.request_security_bypass_handler and
-         current_app.request_security_bypass_handler(request))
+        (current_app.skip_auth_hook and
+         current_app.skip_auth_hook(request))
 
 
 def handle_unauthorized_user():
