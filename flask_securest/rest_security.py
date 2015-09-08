@@ -41,11 +41,12 @@ class SecuREST(object):
         self.app.securest_logger = None
         self.app.securest_unauthorized_user_handler = None
         self.app.securest_authentication_providers = OrderedDict()
+        self.app.securest_response_filter = None
         self.app.securest_userstore_driver = None
         self.app.skip_auth_hook = None
+        _get_request_context().security_context = {}
 
         self.app.before_first_request(validate_configuration)
-        self.app.after_request(filter_response_if_needed)
 
     @property
     def skip_auth_hook(self):
@@ -109,14 +110,15 @@ class SecuREST(object):
 def validate_configuration():
     if not current_app.securest_authentication_providers:
         raise Exception('authentication providers not set')
-
-
-def filter_response_if_needed(response=None):
-    return response
+    if not current_app.securest_authorization_provider:
+        raise Exception('authorization provider not set')
 
 
 def filter_results(results):
-    return results
+    if current_app.securest_response_filter:
+        return current_app.securest_response_filter(results)
+    else:
+        return results
 
 
 def auth_required(func):
@@ -124,7 +126,10 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if _is_secured_request_context():
             try:
+                _update_request_security_context('endpoint', request.endpoint)
+                _update_request_security_context('method', request.method)
                 authenticate()
+                authorize()
             except Exception as e:
                 _log(current_app.securest_logger, 'error', e)
                 handle_unauthorized_user()
@@ -161,14 +166,13 @@ def get_request_origin():
 def authenticate():
     user = None
     error_msg = StringIO.StringIO()
-
     request_origin = get_request_origin()
     userstore_driver = current_app.securest_userstore_driver
     authentication_providers = current_app.securest_authentication_providers
     for auth_method, auth_provider in authentication_providers.iteritems():
         try:
             user = auth_provider.authenticate(userstore_driver)
-
+            # TODO maybe check something else on the user object?
             msg = 'user "{0}" authenticated successfully from host {1}, ' \
                   'authentication provider: {2}'\
                 .format(user.username, request_origin, auth_method)
@@ -187,7 +191,28 @@ def authenticate():
     if not user:
         raise Exception(error_msg.getvalue())
 
-    set_request_user(user)
+    _update_request_security_context('user', user)
+
+
+def authorize():
+    # load user roles and permissions of those roles
+    # set roles on security context?
+    # check permission to target endpoint and method
+    userstore_driver = current_app.securest_userstore_driver
+    authorization_provider = current_app.securest_authorization_provider
+    security_context = _get_request_security_context()
+    user_object = security_context['user']
+    endpoint = security_context['endpoint']
+    http_method = security_context['http_method']
+    is_authorized = authorization_provider.authorize(
+        userstore_driver, user_object, endpoint, http_method)
+    if is_authorized:
+        msg = 'user "{0}" is authorized to execute {1} on {2}'.format(
+            user_object, endpoint, http_method)
+        _log(current_app.securest_logger, 'info', msg)
+    else:
+        raise Exception('User {0} is not authorized to execute {1} on {2}'.
+                        format(user_object, endpoint, http_method))
 
 
 def _get_request_context():
@@ -197,12 +222,12 @@ def _get_request_context():
     return request_ctx
 
 
-def get_request_user():
-    return getattr(_get_request_context(), 'user')
+def _get_request_security_context():
+    return getattr(_get_request_context(), 'security_context')
 
 
-def set_request_user(user):
-    _get_request_context().user = user
+def _update_request_security_context(key, value):
+    _get_request_context().security_context[key] = value
 
 
 def _log(logger, method, message):
