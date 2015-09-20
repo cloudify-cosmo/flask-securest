@@ -33,6 +33,7 @@ setup(
     long_description=get_long_description(),
     packages=['flask_securest',
               'flask_securest.authentication_providers',
+              'flask_securest.authorization_providers',
               'flask_securest.userstores'],
     zip_safe=False,
     install_requires=[
