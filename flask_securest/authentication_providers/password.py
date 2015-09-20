@@ -57,28 +57,27 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
             pass
         else:
             api_key_parts = api_key.split(':')
-            self.user_id = api_key_parts[0]
-            self.password = api_key_parts[1]
+            self.request_user_id = api_key_parts[0]
+            self.request_password = api_key_parts[1]
             if not self.request_user_id or not self.request_password:
                 raise RuntimeError('username or password not found on request')
 
+    def authenticate(self, userstore):
+            self._retrieve_request_credentials()
+            user_object = userstore.get_user(self.request_user_id)
+            if not user_object:
+                # user not found
+                raise Exception('authentication of {0} failed'.
+                                format(self.request_user_id))
 
-def authenticate(self, userstore):
-        self._retrieve_request_credentials()
-        user_object = userstore.get_user(self.request_user_id)
-        if not user_object:
-            # user not found
-            raise Exception('authentication of {0} failed'.
-                            format(self.request_user_id))
+            verified = self.crypt_ctx.verify(self.request_password,
+                                             user_object.password)
+            if not verified or not user_object.is_active():
+                # wrong password or disabled user
+                raise Exception('authentication of {0} failed'.
+                                format(self.request_user_id))
 
-        verified = self.crypt_ctx.verify(self.request_password,
-                                         user_object.password)
-        if not verified or not user_object.is_active():
-            # wrong password or disabled user
-            raise Exception('authentication of {0} failed'.
-                            format(self.request_user_id))
-
-        return user_object
+            return user_object
 
 
 def _get_crypt_context(password_hash):

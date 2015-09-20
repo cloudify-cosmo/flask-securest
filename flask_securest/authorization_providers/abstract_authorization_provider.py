@@ -16,16 +16,16 @@
 import abc
 
 
-class AbstractAuthenticationProvider(object):
+class AbstractAuthorizationProvider(object):
     """
     This class is abstract and should be inherited by concrete
-    implementations of authentication providers.
-    The only mandatory implementation is of authenticate, which is expected
+    implementations of authorization providers.
+    The only mandatory implementation is of authorize, which is expected
     to return true/false
     """
 
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def authenticate(self, userstore=None):
+    def authorize(self, userstore_driver, user_id, endpoint, http_method):
         raise NotImplementedError

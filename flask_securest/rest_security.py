@@ -20,16 +20,21 @@ from functools import wraps
 from flask import (current_app,
                    abort,
                    request,
-                   _request_ctx_stack)
+                   g as flask_request_globals)
 from flask_restful import Resource
 
 from flask_securest import utils
 from flask_securest.userstores.abstract_userstore import AbstractUserstore
 from flask_securest.authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
+from flask_securest.authorization_providers.abstract_authorization_provider \
+    import AbstractAuthorizationProvider
 
 
-SECURED_MODE = 'SECUREST_MODE'
+SECURED_MODE = 'app_secured'
+SECURITY_CTX_HTTP_METHOD = 'http_method'
+SECURITY_CTX_ENDPOINT = 'endpoint'
+SECURITY_CTX_USER = 'user'
 
 
 class SecuREST(object):
@@ -43,10 +48,11 @@ class SecuREST(object):
         self.app.securest_authentication_providers = OrderedDict()
         self.app.securest_response_filter = None
         self.app.securest_userstore_driver = None
+        self.app.securest_acl_handler = None
         self.app.skip_auth_hook = None
-        _get_request_context().security_context = {}
 
-        self.app.before_first_request(validate_configuration)
+        self.app.before_first_request(_validate_configuration)
+        self.app.before_request(_clean_security_context)
 
     @property
     def skip_auth_hook(self):
@@ -106,18 +112,42 @@ class SecuREST(object):
 
         self.app.securest_authentication_providers[name] = provider
 
+    def set_authorization_provider(self, provider):
+        """
+        Registers the given authorization provider.
+        :param provider: the authorization provider to be set
+        """
+        if not isinstance(provider, AbstractAuthorizationProvider):
+            err_msg = 'failed to register authroization provider "{0}", ' \
+                      'Error: provider does not inherit "{1}"' \
+                .format(utils.get_instance_class_fqn(provider),
+                        utils.get_class_fqn(AbstractAuthorizationProvider))
+            _log(self.app.securest_logger, 'critical', err_msg)
+            raise Exception(err_msg)
 
-def validate_configuration():
+        self.app.securest_authorization_provider = provider
+
+
+def _validate_configuration():
     if not current_app.securest_authentication_providers:
         raise Exception('authentication providers not set')
     if not current_app.securest_authorization_provider:
         raise Exception('authorization provider not set')
 
 
+def _clean_security_context():
+    print '***** setting security_context to empty dict'
+    flask_request_globals.security_context = {}
+    print '***** flask_request_globals.security_context is: {0}'.format(flask_request_globals.security_context)
+
+
 def filter_results(results):
     if current_app.securest_response_filter:
         return current_app.securest_response_filter(results)
     else:
+        # TODO should we verify the object acl matches the current user here?
+        # or is this only enforced in the authorization step? how will it work for list?
+        # it should probably be part of the select query
         return results
 
 
@@ -126,8 +156,6 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if _is_secured_request_context():
             try:
-                _update_request_security_context('endpoint', request.endpoint)
-                _update_request_security_context('method', request.method)
                 authenticate()
                 authorize()
             except Exception as e:
@@ -191,7 +219,9 @@ def authenticate():
     if not user:
         raise Exception(error_msg.getvalue())
 
-    _update_request_security_context('user', user)
+    _update_security_context_value(SECURITY_CTX_USER, user)
+    _update_security_context_value(SECURITY_CTX_ENDPOINT, request.endpoint)
+    _update_security_context_value(SECURITY_CTX_HTTP_METHOD, request.method)
 
 
 def authorize():
@@ -200,34 +230,43 @@ def authorize():
     # check permission to target endpoint and method
     userstore_driver = current_app.securest_userstore_driver
     authorization_provider = current_app.securest_authorization_provider
-    security_context = _get_request_security_context()
-    user_object = security_context['user']
-    endpoint = security_context['endpoint']
-    http_method = security_context['http_method']
     is_authorized = authorization_provider.authorize(
-        userstore_driver, user_object, endpoint, http_method)
+        userstore_driver, get_user(), get_endpoint, get_http_method())
     if is_authorized:
         msg = 'user "{0}" is authorized to execute {1} on {2}'.format(
-            user_object, endpoint, http_method)
+            get_user(), get_endpoint(), get_http_method())
         _log(current_app.securest_logger, 'info', msg)
     else:
         raise Exception('User {0} is not authorized to execute {1} on {2}'.
-                        format(user_object, endpoint, http_method))
+                        format(get_user(), get_endpoint(), get_http_method()))
 
 
-def _get_request_context():
-    request_ctx = _request_ctx_stack.top
-    if request_ctx is None:
-        raise RuntimeError('working outside of request context')
-    return request_ctx
+def get_acl(resource_type):
+    if current_app.securest_acl_handler:
+        current_app.securest_acl_handler(resource_type)
+    else:
+        return get_default_open_acl()
 
 
-def _get_request_security_context():
-    return getattr(_get_request_context(), 'security_context')
+def get_default_open_acl():
+    {get_user(): '*'}
 
 
-def _update_request_security_context(key, value):
-    _get_request_context().security_context[key] = value
+def _update_security_context_value(key, value):
+    flask_request_globals.security_context[key] = value
+    print '***** flask_request_globals.security_context[{0}] set to {1}'.format(key, value)
+
+
+def get_user():
+    return flask_request_globals.security_context[SECURITY_CTX_USER]
+
+
+def get_endpoint():
+    return flask_request_globals.security_context[SECURITY_CTX_ENDPOINT]
+
+
+def get_http_method():
+    return flask_request_globals.security_context[SECURITY_CTX_HTTP_METHOD]
 
 
 def _log(logger, method, message):
