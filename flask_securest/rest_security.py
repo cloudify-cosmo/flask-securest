@@ -138,16 +138,14 @@ def _validate_configuration():
 def _clean_security_context():
     print '***** setting security_context to empty dict'
     flask_request_globals.security_context = {}
-    print '***** flask_request_globals.security_context is: {0}'.format(flask_request_globals.security_context)
+    print '***** flask_request_globals.security_context is: {0}'.\
+        format(flask_request_globals.security_context)
 
 
 def filter_results(results):
     if current_app.securest_response_filter:
         return current_app.securest_response_filter(results)
     else:
-        # TODO should we verify the object acl matches the current user here?
-        # or is this only enforced in the authorization step? how will it work for list?
-        # it should probably be part of the select query
         return results
 
 
@@ -259,7 +257,8 @@ def get_all_principals_for_current_user():
 
 def _update_security_context_value(key, value):
     flask_request_globals.security_context[key] = value
-    print '***** flask_request_globals.security_context[{0}] set to {1}'.format(key, value)
+    print '***** flask_request_globals.security_context[{0}] set to {1}'.\
+        format(key, value)
 
 
 def get_security_context():
