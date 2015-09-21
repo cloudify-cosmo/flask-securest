@@ -51,5 +51,6 @@ class SimpleUserstore(AbstractUserstore):
         matching_entry = None
         for user_entry in self.users.itervalues():
             if user_entry.get(self._identifying_attribute) == user_identifier:
+                matching_entry = user_entry
                 break
         return matching_entry
