@@ -72,8 +72,8 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
 
             verified = self.crypt_ctx.verify(self.request_password,
                                              user_object.password)
-            if not verified or not user_object.is_active():
-                # wrong password or disabled user
+            if not verified:
+                # wrong password
                 raise Exception('authentication of {0} failed'.
                                 format(self.request_user_id))
 

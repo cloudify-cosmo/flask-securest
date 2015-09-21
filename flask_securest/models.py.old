@@ -75,9 +75,6 @@ class User(UserModel):
     def is_anonymous(self):
         return False
 
-    # def get_roles(self):
-    #     return (role.name for role in self._roles)
-
     # additional properties
     @property
     def username(self):
@@ -86,10 +83,6 @@ class User(UserModel):
     @property
     def password(self):
         return self._password
-
-    @property
-    def email(self):
-        return self._email
 
 
 def get_runtime_class_fqn(instance):

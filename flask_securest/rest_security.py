@@ -252,6 +252,11 @@ def _get_default_acl():
     {get_user(): '*'}
 
 
+def get_all_principals_for_current_user():
+    return current_app.securest_userstore_driver.\
+        get_all_principals_for_user(get_user())
+
+
 def _update_security_context_value(key, value):
     flask_request_globals.security_context[key] = value
     print '***** flask_request_globals.security_context[{0}] set to {1}'.format(key, value)

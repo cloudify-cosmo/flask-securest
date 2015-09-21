@@ -14,12 +14,6 @@
 #  * limitations under the License.
 
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
-from flask.ext.securest.models import User, Role
-
-USERNAME = 'username'
-PASSWORD = 'password'
-EMAIL = 'email'
-ROLES = 'roles'
 
 
 class SimpleUserstore(AbstractUserstore):
@@ -29,26 +23,33 @@ class SimpleUserstore(AbstractUserstore):
         self.users = userstore
 
     def get_user(self, user_identifier):
-        user_obj = None
+        user_obj = {}
 
         if not user_identifier:
             raise ValueError('user identifier is missing or empty')
 
-        for user_entry in self.users.itervalues():
-            if user_entry.get(self._identifying_attribute) == user_identifier:
-                # a matching user was found, return as a User object
-                user_obj = SimpleUserstore._create_user_object(user_entry)
-                break
+        user_entry = self.find_user(user_identifier)
+        if user_entry:
+            # a matching entry was found.
+            # if the user is not disabled - use this entry
+            if user_entry.get('is_active', True):
+                user_obj = user_entry
 
         return user_obj
 
-    @staticmethod
-    def _create_user_object(user_dict):
-        roles = []
+    def get_all_principals_for_user(self, user_identifier):
+        principals = []
+        user_entry = self.find_user(user_identifier)
+        if user_entry:
+            principals.append(user_identifier)
+            for group in user_entry.get('groups'):
+                principals.append(group)
 
-        if ROLES in user_dict:
-            for role_name in user_dict[ROLES]:
-                roles.append(Role(role_name))
+        return principals
 
-        return User(user_dict[USERNAME], user_dict[PASSWORD],
-                    user_dict[EMAIL], roles, active=True)
+    def find_user(self, user_identifier):
+        matching_entry = None
+        for user_entry in self.users.itervalues():
+            if user_entry.get(self._identifying_attribute) == user_identifier:
+                break
+        return matching_entry
