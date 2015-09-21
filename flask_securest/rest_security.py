@@ -241,20 +241,24 @@ def authorize():
                         format(get_user(), get_endpoint(), get_http_method()))
 
 
-def get_acl(resource_type):
+def get_acl():
     if current_app.securest_acl_handler:
-        current_app.securest_acl_handler(resource_type)
+        return current_app.securest_acl_handler(get_security_context())
     else:
-        return get_default_open_acl()
+        return _get_default_acl()
 
 
-def get_default_open_acl():
+def _get_default_acl():
     {get_user(): '*'}
 
 
 def _update_security_context_value(key, value):
     flask_request_globals.security_context[key] = value
     print '***** flask_request_globals.security_context[{0}] set to {1}'.format(key, value)
+
+
+def get_security_context():
+    return flask_request_globals.security_context
 
 
 def get_user():
