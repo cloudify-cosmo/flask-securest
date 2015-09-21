@@ -64,20 +64,20 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
 
     def authenticate(self, userstore):
             self._retrieve_request_credentials()
-            user_object = userstore.get_user(self.request_user_id)
-            if not user_object:
+            user_details = userstore.get_user(self.request_user_id)
+            if not user_details:
                 # user not found
                 raise Exception('authentication of {0} failed'.
                                 format(self.request_user_id))
 
             verified = self.crypt_ctx.verify(self.request_password,
-                                             user_object.password)
+                                             user_details.get('password'))
             if not verified:
                 # wrong password
                 raise Exception('authentication of {0} failed'.
                                 format(self.request_user_id))
 
-            return user_object
+            return user_details
 
 
 def _get_crypt_context(password_hash):

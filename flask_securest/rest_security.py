@@ -35,6 +35,7 @@ SECURED_MODE = 'app_secured'
 SECURITY_CTX_HTTP_METHOD = 'http_method'
 SECURITY_CTX_ENDPOINT = 'endpoint'
 SECURITY_CTX_USER = 'user'
+SECURITY_CTX_PRINCIPALS_LIST = 'principals_list'
 
 
 class SecuREST(object):
@@ -220,6 +221,8 @@ def authenticate():
     _update_security_context_value(SECURITY_CTX_USER, user)
     _update_security_context_value(SECURITY_CTX_ENDPOINT, request.endpoint)
     _update_security_context_value(SECURITY_CTX_HTTP_METHOD, request.method)
+    _update_security_context_value(SECURITY_CTX_PRINCIPALS_LIST,
+                                   _get_all_principals_for_current_user())
 
 
 def authorize():
@@ -250,7 +253,7 @@ def _get_default_acl():
     {get_user(): '*'}
 
 
-def get_all_principals_for_current_user():
+def _get_all_principals_for_current_user():
     return current_app.securest_userstore_driver.\
         get_all_principals_for_user(get_user())
 
@@ -275,6 +278,10 @@ def get_endpoint():
 
 def get_http_method():
     return flask_request_globals.security_context[SECURITY_CTX_HTTP_METHOD]
+
+
+def get_principals_list():
+    return flask_request_globals.security_context[SECURITY_CTX_PRINCIPALS_LIST]
 
 
 def _log(logger, method, message):
