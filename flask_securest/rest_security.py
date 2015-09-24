@@ -202,7 +202,7 @@ def authenticate():
             # TODO maybe check something else on the user object?
             msg = 'user "{0}" authenticated successfully from host {1}, ' \
                   'authentication provider: {2}'\
-                .format(user.username, request_origin, auth_method)
+                .format(user['username'], request_origin, auth_method)
             _log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:
@@ -218,28 +218,34 @@ def authenticate():
     if not user:
         raise Exception(error_msg.getvalue())
 
-    _update_security_context_value(SECURITY_CTX_USER, user)
+    current_app.logger.info('***** authN completed, setting security context')
+    _update_security_context_value(SECURITY_CTX_USER, user['username'])
     _update_security_context_value(SECURITY_CTX_ENDPOINT, request.endpoint)
     _update_security_context_value(SECURITY_CTX_HTTP_METHOD, request.method)
     _update_security_context_value(SECURITY_CTX_PRINCIPALS_LIST,
                                    _get_all_principals_for_current_user())
+    current_app.logger.info('***** security context set')
 
 
 def authorize():
     # load user roles and permissions of those roles
     # set roles on security context?
     # check permission to target endpoint and method
+    current_app.securest_logger.info('***** starting authorize')
     userstore_driver = current_app.securest_userstore_driver
     authorization_provider = current_app.securest_authorization_provider
     is_authorized = authorization_provider.authorize(
-        userstore_driver, get_user(), get_endpoint, get_http_method())
+        userstore_driver, get_username(), get_endpoint, get_http_method())
     if is_authorized:
         msg = 'user "{0}" is authorized to execute {1} on {2}'.format(
-            get_user(), get_endpoint(), get_http_method())
+            get_username(), get_endpoint(), get_http_method())
         _log(current_app.securest_logger, 'info', msg)
+        current_app.securest_logger.info('***** ended authorize')
     else:
+        current_app.securest_logger.info('***** is_authorized is false')
         raise Exception('User {0} is not authorized to execute {1} on {2}'.
-                        format(get_user(), get_endpoint(), get_http_method()))
+                        format(get_username(), get_endpoint(),
+                               get_http_method()))
 
 
 def get_acl():
@@ -250,25 +256,33 @@ def get_acl():
 
 
 def _get_default_acl():
-    {get_user(): '*'}
+    return ['allow#{0}#*'.format(get_username())]
 
 
 def _get_all_principals_for_current_user():
-    return current_app.securest_userstore_driver.\
-        get_all_principals_for_user(get_user())
+    current_app.logger.error('***** getting principals for user {0}'.
+                             format(get_username()))
+    principals_list = current_app.securest_userstore_driver.\
+        get_all_principals_for_user(get_username())
+    current_app.logger.error('***** user {0} has principals list: {1}'.
+                             format(get_username(), principals_list))
+    return principals_list
 
 
 def _update_security_context_value(key, value):
+    current_app.logger.info('***** attempting to set "{0}" to "{1}"'.
+                            format(key, value))
     flask_request_globals.security_context[key] = value
-    print '***** flask_request_globals.security_context[{0}] set to {1}'.\
-        format(key, value)
+    current_app.logger.info('***** '
+                            'flask_request_globals.security_context[{0}] '
+                            'set to {1}'.format(key, value))
 
 
 def get_security_context():
     return flask_request_globals.security_context
 
 
-def get_user():
+def get_username():
     return flask_request_globals.security_context[SECURITY_CTX_USER]
 
 

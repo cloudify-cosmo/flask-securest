@@ -14,6 +14,7 @@
 #  * limitations under the License.
 
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
+from flask import current_app
 
 
 class SimpleUserstore(AbstractUserstore):
@@ -38,12 +39,22 @@ class SimpleUserstore(AbstractUserstore):
         return user_obj
 
     def get_all_principals_for_user(self, user_identifier):
+        current_app.logger.info('***** '
+                                'starting simple.get_all_principals_for_user')
         principals = []
         user_entry = self.find_user(user_identifier)
+        current_app.logger.info('***** user_entry is {0}'.format(user_entry))
         if user_entry:
+            current_app.logger.info('***** appending principal: {0}'.
+                                    format(user_identifier))
             principals.append(user_identifier)
-            for group in user_entry.get('groups'):
-                principals.append(group)
+            current_app.logger.info('***** looping groups...')
+            groups = user_entry.get('groups')
+            if groups:
+                for group in user_entry.get('groups'):
+                    current_app.logger.info('***** appending group: {0}'.
+                                            format(group))
+                    principals.append(group)
 
         return principals
 
