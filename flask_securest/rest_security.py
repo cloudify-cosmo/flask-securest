@@ -256,7 +256,7 @@ def get_acl():
 
 
 def _get_default_acl():
-    return ['allow#{0}#*'.format(get_username())]
+    return ['ALLOW#{0}#ALL'.format(get_username())]
 
 
 def _get_all_principals_for_current_user():
