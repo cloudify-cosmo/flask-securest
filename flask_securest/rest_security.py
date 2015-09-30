@@ -191,6 +191,9 @@ def get_request_origin():
 
 
 def authenticate():
+    current_app.securest_logger.info('***** starting authenticate for {0}'
+                                     ' on {1}'.format(request.method,
+                                                      request.endpoint))
     user = None
     error_msg = StringIO.StringIO()
     request_origin = get_request_origin()
@@ -237,8 +240,8 @@ def authorize():
     is_authorized = authorization_provider.authorize(
         userstore_driver, get_username(), get_endpoint, get_http_method())
     if is_authorized:
-        msg = 'user "{0}" is authorized to execute {1} on {2}'.format(
-            get_username(), get_endpoint(), get_http_method())
+        msg = 'user "{0}" is authorized to call {1} on {2}'.format(
+            get_username(), get_http_method(), get_endpoint())
         _log(current_app.securest_logger, 'info', msg)
         current_app.securest_logger.info('***** ended authorize')
     else:

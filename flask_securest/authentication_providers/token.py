@@ -47,6 +47,7 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
 
     def authenticate(self, userstore):
         try:
+            self._retrieve_request_token()
             open_token = self._serializer.loads(self.request_token)
         except SignatureExpired:
             raise Exception('token expired')
