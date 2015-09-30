@@ -246,9 +246,9 @@ def authorize():
         current_app.securest_logger.info('***** ended authorize')
     else:
         current_app.securest_logger.info('***** is_authorized is false')
-        raise Exception('User {0} is not authorized to execute {1} on {2}'.
-                        format(get_username(), get_endpoint(),
-                               get_http_method()))
+        raise Exception('User {0} is not authorized to call {1} on {2}'.
+                        format(get_username(), get_http_method(),
+                               get_endpoint()))
 
 
 def get_acl():
