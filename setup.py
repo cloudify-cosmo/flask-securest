@@ -34,7 +34,8 @@ setup(
     packages=['flask_securest',
               'flask_securest.authentication_providers',
               'flask_securest.authorization_providers',
-              'flask_securest.userstores'],
+              'flask_securest.userstores',
+              'flask_securest.acl_handlers'],
     zip_safe=False,
     install_requires=[
         'Flask>=0.9',
