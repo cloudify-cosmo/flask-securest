@@ -29,6 +29,7 @@ from flask_securest.authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
 from flask_securest.authorization_providers.abstract_authorization_provider \
     import AbstractAuthorizationProvider
+from flask_securest.acl_handlers.abstract_acl_handler import AbstractACLHandler
 
 
 SECURED_MODE = 'app_secured'
@@ -93,6 +94,21 @@ class SecuREST(object):
             raise Exception(err_msg)
 
         self.app.securest_userstore_driver = userstore
+
+    def set_acl_handler(self, acl_handler):
+        """
+        Registers the given ACL handler.
+        :param acl_handler: the ACL handler to be set
+        """
+        if not isinstance(acl_handler, AbstractACLHandler):
+            err_msg = 'failed to register ACL handler "{0}", Error: ' \
+                      'driver does not inherit "{1}"' \
+                .format(utils.get_instance_class_fqn(acl_handler),
+                        utils.get_class_fqn(AbstractACLHandler))
+            _log(self.app.securest_logger, 'critical', err_msg)
+            raise Exception(err_msg)
+
+        self.app.securest_acl_handler = acl_handler
 
     def register_authentication_provider(self, name, provider):
         """
@@ -253,13 +269,14 @@ def authorize():
 
 def get_acl():
     if current_app.securest_acl_handler:
-        return current_app.securest_acl_handler(get_security_context())
+        return current_app.securest_acl_handler().\
+            get_acl(get_security_context())
     else:
         return _get_default_acl()
 
 
 def _get_default_acl():
-    return ['ALLOW#{0}#ALL'.format(get_username())]
+    return ['ALLOW#ALL#ALL'.format(get_username())]
 
 
 def _get_all_principals_for_current_user():
