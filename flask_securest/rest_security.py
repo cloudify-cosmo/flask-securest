@@ -180,6 +180,7 @@ def auth_required(func):
             return filter_results(result)
         else:
             # rest security is turned off
+            print '***** BYPASSING SECURITY, request: {0}'.format(request.url)
             return func(*args, **kwargs)
     return wrapper
 
@@ -280,12 +281,12 @@ def _get_default_acl():
 
 
 def _get_all_principals_for_current_user():
-    current_app.logger.error('***** getting principals for user {0}'.
-                             format(get_username()))
+    current_app.logger.info('***** getting principals for user {0}'.
+                            format(get_username()))
     principals_list = current_app.securest_userstore_driver.\
         get_all_principals_for_user(get_username())
-    current_app.logger.error('***** user {0} has principals list: {1}'.
-                             format(get_username(), principals_list))
+    current_app.logger.info('***** user {0} has principals list: {1}'.
+                            format(get_username(), principals_list))
     return principals_list
 
 
