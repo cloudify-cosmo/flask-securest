@@ -154,8 +154,8 @@ def _validate_configuration():
 
 def _clean_security_context():
     flask_request_globals.security_context = {}
-    print '***** flask_request_globals.security_context is: {0}'.\
-        format(flask_request_globals.security_context)
+    current_app.logger.info('***** cleaned security_context, it is now: {0}'.
+                            format(flask_request_globals.security_context))
 
 
 def filter_results(results):
