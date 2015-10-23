@@ -35,8 +35,8 @@ from flask_securest.acl_handlers.abstract_acl_handler import AbstractACLHandler
 SECURED_MODE = 'app_secured'
 SECURITY_CTX_HTTP_METHOD = 'http_method'
 SECURITY_CTX_ENDPOINT = 'endpoint'
-SECURITY_CTX_USER = 'user'
-SECURITY_CTX_PRINCIPALS_LIST = 'principals_list'
+SECURITY_CTX_USERNAME = 'username'
+SECURITY_CTX_PRINCIPALS = 'principals'
 
 
 class SecuREST(object):
@@ -153,7 +153,12 @@ def _validate_configuration():
 
 
 def _clean_security_context():
-    flask_request_globals.security_context = {}
+    flask_request_globals.security_context = {
+        SECURITY_CTX_HTTP_METHOD: None,
+        SECURITY_CTX_ENDPOINT: None,
+        SECURITY_CTX_USERNAME: None,
+        SECURITY_CTX_PRINCIPALS: None
+    }
     current_app.logger.info('***** cleaned security_context, it is now: {0}'.
                             format(flask_request_globals.security_context))
 
@@ -170,6 +175,10 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if _is_secured_request_context():
             try:
+                _set_security_context_value(SECURITY_CTX_ENDPOINT,
+                                            request.endpoint)
+                _set_security_context_value(SECURITY_CTX_HTTP_METHOD,
+                                            request.method)
                 authenticate()
                 authorize()
             except Exception as e:
@@ -179,7 +188,9 @@ def auth_required(func):
             return filter_results(result)
         else:
             # rest security is turned off
-            print '***** BYPASSING SECURITY, request: {0}'.format(request.url)
+            current_app.securest_logger.info(
+                '***** INTERNAL CALL, BYPASSING SECURITY, request: {0}'.
+                format(request.url))
             return func(*args, **kwargs)
     return wrapper
 
@@ -237,13 +248,9 @@ def authenticate():
     if not user:
         raise Exception(error_msg.getvalue())
 
-    current_app.logger.info('***** authN completed, setting security context')
-    _update_security_context_value(SECURITY_CTX_USER, user['username'])
-    _update_security_context_value(SECURITY_CTX_ENDPOINT, request.endpoint)
-    _update_security_context_value(SECURITY_CTX_HTTP_METHOD, request.method)
-    _update_security_context_value(SECURITY_CTX_PRINCIPALS_LIST,
-                                   _get_all_principals_for_current_user())
-    current_app.logger.info('***** security context set')
+    _set_security_context_value(SECURITY_CTX_USERNAME, user['username'])
+    _set_security_context_value(SECURITY_CTX_PRINCIPALS,
+                                _get_all_principals_for_current_user())
 
 
 def authorize():
@@ -289,7 +296,7 @@ def _get_all_principals_for_current_user():
     return principals_list
 
 
-def _update_security_context_value(key, value):
+def _set_security_context_value(key, value):
     current_app.logger.info('***** attempting to set "{0}" to "{1}"'.
                             format(key, value))
     flask_request_globals.security_context[key] = value
@@ -303,7 +310,7 @@ def get_security_context():
 
 
 def get_username():
-    return flask_request_globals.security_context[SECURITY_CTX_USER]
+    return flask_request_globals.security_context[SECURITY_CTX_USERNAME]
 
 
 def get_endpoint():
@@ -315,7 +322,7 @@ def get_http_method():
 
 
 def get_principals_list():
-    return flask_request_globals.security_context[SECURITY_CTX_PRINCIPALS_LIST]
+    return flask_request_globals.security_context[SECURITY_CTX_PRINCIPALS]
 
 
 def _log(logger, method, message):
