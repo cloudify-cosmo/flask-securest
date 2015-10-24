@@ -159,8 +159,7 @@ def _clean_security_context():
         SECURITY_CTX_USERNAME: None,
         SECURITY_CTX_PRINCIPALS: None
     }
-    current_app.logger.info('***** cleaned security_context, it is now: {0}'.
-                            format(flask_request_globals.security_context))
+    current_app.securest_logger.info('***** cleaned security_context')
 
 
 def filter_results(results):
@@ -191,6 +190,8 @@ def auth_required(func):
             current_app.securest_logger.info(
                 '***** INTERNAL CALL, BYPASSING SECURITY, request: {0}'.
                 format(request.url))
+            import traceback
+            traceback.print_stack(file='/var/log/cloudify/rest/rest-security-audit.log')
             return func(*args, **kwargs)
     return wrapper
 
@@ -297,12 +298,9 @@ def _get_all_principals_for_current_user():
 
 
 def _set_security_context_value(key, value):
-    current_app.logger.info('***** attempting to set "{0}" to "{1}"'.
-                            format(key, value))
     flask_request_globals.security_context[key] = value
-    current_app.logger.info('***** '
-                            'flask_request_globals.security_context[{0}] '
-                            'set to {1}'.format(key, value))
+    current_app.securest_logger.info('***** set security_context[{0}] to "{1}"'
+                                     .format(key, value))
 
 
 def get_security_context():
