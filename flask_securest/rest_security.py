@@ -188,8 +188,8 @@ def auth_required(func):
         else:
             # rest security is turned off
             current_app.securest_logger.info(
-                '***** INTERNAL CALL, BYPASSING SECURITY, request: {0}'.
-                format(request.url))
+                '***** INTERNAL CALL, BYPASSING SECURITY, request: {0} {1}'.
+                format(request.method, request.url))
             import traceback
             with open('/tmp/security_bypassing_callstack.log', 'a') as logfile:
                 traceback.print_stack(file=logfile)
