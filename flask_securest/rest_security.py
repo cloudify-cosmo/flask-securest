@@ -191,7 +191,8 @@ def auth_required(func):
                 '***** INTERNAL CALL, BYPASSING SECURITY, request: {0}'.
                 format(request.url))
             import traceback
-            traceback.print_stack(file='/var/log/cloudify/rest/rest-security-audit.log')
+            with open('/tmp/security_bypassing_callstack.log', 'a') as logfile:
+                traceback.print_stack(file=logfile)
             return func(*args, **kwargs)
     return wrapper
 
