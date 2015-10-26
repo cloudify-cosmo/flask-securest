@@ -17,10 +17,13 @@ from itsdangerous import (TimedJSONWebSignatureSerializer,
                           SignatureExpired,
                           BadSignature)
 
+from flask import request
 from flask_securest import rest_security
 from flask_securest.authentication_providers.abstract_authentication_provider \
     import AbstractAuthenticationProvider
 
+
+REQUEST_TOKEN_HEADER = 'Authentication-Token'
 USERNAME_FIELD = 'username'
 
 
@@ -35,13 +38,9 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
         return self._serializer.dumps(
             {USERNAME_FIELD: rest_security.get_request_user().username})
 
-    def authenticate(self, auth_info, userstore):
-        token = auth_info.token
-        if not token:
-            raise Exception('token not found on request')
-
+    def authenticate(self, userstore):
         try:
-            open_token = self._serializer.loads(token)
+            open_token = self._serializer.loads(_retrieve_token_from_request())
         except SignatureExpired:
             raise Exception('token expired')
         except BadSignature:
@@ -57,3 +56,11 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
                             .format(username))
 
         return user
+
+
+def _retrieve_token_from_request():
+    request_token = request.headers.get(REQUEST_TOKEN_HEADER)
+    if not request_token:
+        raise RuntimeError('Request authentication header "{0}" is empty '
+                           'or missing'.format(REQUEST_TOKEN_HEADER))
+    return request_token
