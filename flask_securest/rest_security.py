@@ -14,7 +14,7 @@
 #  * limitations under the License.
 
 import StringIO
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict
 from functools import wraps
 
 from flask import (current_app,
@@ -127,9 +127,7 @@ def auth_required(func):
     def wrapper(*args, **kwargs):
         if _is_secured_request_context():
             try:
-                auth_info = get_auth_info_from_request()
-                authenticate(current_app.securest_authentication_providers,
-                             auth_info)
+                authenticate()
             except Exception as e:
                 _log(current_app.securest_logger, 'error', e)
                 handle_unauthorized_user()
@@ -154,47 +152,6 @@ def handle_unauthorized_user():
         abort(401)
 
 
-def get_auth_info_from_request():
-    user_id = None
-    password = None
-    token = None
-
-    # TODO remember this is configurable - document
-    app_config = current_app.config
-
-    auth_header_name = app_config.get('AUTH_HEADER_NAME', AUTH_HEADER_NAME)
-    if auth_header_name:
-        auth_header = request.headers.get(auth_header_name)
-
-    auth_token_header_name = app_config.get('AUTH_TOKEN_HEADER_NAME',
-                                            AUTH_TOKEN_HEADER_NAME)
-    if auth_token_header_name:
-        token = request.headers.get(auth_token_header_name)
-
-    if not auth_header and not token:
-        raise Exception('Authentication information not found on request, '
-                        'searched for headers: {0}, {1}'
-                        .format(auth_header_name, auth_token_header_name))
-
-    if auth_header:
-        auth_header = auth_header.replace(BASIC_AUTH_PREFIX + ' ', '', 1)
-        try:
-            from itsdangerous import base64_decode
-            api_key = base64_decode(auth_header)
-            # TODO parse better, with checks and all, this is shaky
-        except TypeError:
-            pass
-        else:
-            api_key_parts = api_key.split(':')
-            user_id = api_key_parts[0]
-            password = api_key_parts[1]
-
-    auth_info = namedtuple('auth_info_type',
-                           ['user_id', 'password', 'token'])
-
-    return auth_info(user_id, password, token)
-
-
 def get_request_origin():
     request_origin_ip = request.remote_addr
     if request_origin_ip:
@@ -204,17 +161,17 @@ def get_request_origin():
     return request_origin
 
 
-def authenticate(authentication_providers, auth_info):
+def authenticate():
     user = None
     error_msg = StringIO.StringIO()
-
     request_origin = get_request_origin()
     userstore_driver = current_app.securest_userstore_driver
+    authentication_providers = current_app.securest_authentication_providers
     for auth_method, auth_provider in authentication_providers.iteritems():
         try:
-            user = auth_provider.authenticate(
-                auth_info, userstore_driver)
-
+            user = auth_provider.authenticate(userstore_driver)
+            # TODO the user obj might not have a 'username' field,
+            # we should use smarter logging
             msg = 'user "{0}" authenticated successfully from host {1}, ' \
                   'authentication provider: {2}'\
                 .format(user.username, request_origin, auth_method)
