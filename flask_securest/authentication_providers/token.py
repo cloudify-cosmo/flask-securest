@@ -36,7 +36,7 @@ class TokenAuthenticator(AbstractAuthenticationProvider):
 
     def generate_auth_token(self):
         return self._serializer.dumps(
-            {USERNAME_FIELD: rest_security.get_request_user().username})
+            {USERNAME_FIELD: rest_security.get_request_user()['username']})
 
     def authenticate(self, userstore):
         try:

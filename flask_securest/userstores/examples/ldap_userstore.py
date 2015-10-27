@@ -15,7 +15,6 @@
 
 import ldap
 
-from flask.ext.securest.models import User
 from flask.ext.securest.userstores.abstract_userstore import AbstractUserstore
 
 
@@ -68,10 +67,11 @@ class LDAPUserstore(AbstractUserstore):
         is_active = LDAPUserstore.get_attribute_if_exists(
             self.is_active_attribute, user_entry, True)
 
-        return User(user_entry[self.username_attribute][0],
-                    user_entry[self.user_password_attribute][0],
-                    user_email,
-                    active=is_active)
+        return {'username': user_entry[self.username_attribute][0],
+                'password': user_entry[self.user_password_attribute][0],
+                'email': user_email,
+                'active': is_active
+                }
 
     @staticmethod
     def get_attribute_if_exists(attr_name, user_entry, default_value=None):
