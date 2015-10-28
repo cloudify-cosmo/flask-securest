@@ -174,7 +174,7 @@ def authenticate():
             # we should use smarter logging
             msg = 'user "{0}" authenticated successfully from host {1}, ' \
                   'authentication provider: {2}'\
-                .format(user.username, request_origin, auth_method)
+                .format(user['username'], request_origin, auth_method)
             _log(current_app.securest_logger, 'info', msg)
             break
         except Exception as e:

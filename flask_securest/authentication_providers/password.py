@@ -51,7 +51,7 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
                             format(request_user_id))
 
         verified = self.crypt_ctx.verify(request_password,
-                                         stored_user.password)
+                                         stored_user['password'])
         if not verified:
             # wrong password
             raise Exception('authentication of user "{0}" failed'.
