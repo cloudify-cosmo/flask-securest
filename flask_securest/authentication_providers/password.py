@@ -57,7 +57,7 @@ class PasswordAuthenticator(AbstractAuthenticationProvider):
             raise Exception('authentication of user "{0}" failed'.
                             format(request_user_id))
 
-        return stored_user
+        return stored_user['username']
 
 
 def _retrieve_credentials_from_request():
