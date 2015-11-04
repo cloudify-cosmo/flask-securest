@@ -21,67 +21,79 @@ from flask_securest.authorization_providers.abstract_authorization_provider\
     import AbstractAuthorizationProvider
 
 
-ALL_METHODS = '*'
+ANY = '*'
 
 
 class RoleBasedAuthorizationProvider(AbstractAuthorizationProvider):
 
     def __init__(self, role_loader, roles_config_file_path):
         self.role_loader = role_loader
-        self.permissions_by_roles = \
-            _load_permissions_from_file(roles_config_file_path)
+        with open(roles_config_file_path, 'r') as config_file:
+            self.permissions_by_roles = yaml.safe_load(config_file.read())
 
     def authorize(self):
         target_endpoint = rest_security.get_endpoint()
         target_method = rest_security.get_http_method()
-        user_roles = self.role_loader.get_roles()
-        return self._is_authorized(target_endpoint, target_method, user_roles)
+        roles = self.role_loader.get_roles()
+        return self._is_allowed(target_endpoint, target_method, roles) and \
+            not self._is_denied(target_endpoint, target_method, roles)
 
-    def _is_authorized(self, target_endpoint, target_method, user_roles):
+    def _is_allowed(self, target_endpoint, target_method, user_roles):
+        return self._evaluate_permission_by_type(target_endpoint,
+                                                 target_method, user_roles,
+                                                 'allow')
+
+    def _is_denied(self, target_endpoint, target_method, user_roles):
+        return self._evaluate_permission_by_type(target_endpoint,
+                                                 target_method, user_roles,
+                                                 'deny')
+
+    def _evaluate_permission_by_type(self, target_endpoint, target_method,
+                                     user_roles, permission_type):
         for role in user_roles:
-            permissions = self.permissions_by_roles.get(role, [])
-            for endpoint, methods in permissions.iteritems():
-                if _is_endpoint_permitted(target_endpoint=target_endpoint,
-                                          permitted_endpoint=endpoint):
-                    if _is_method_permitted(target_method=target_method,
-                                            permitted_methods=methods):
-                        # authorized!
-                        return True
+            role_permissions = self.permissions_by_roles.get(role,
+                                                             {'allow': {},
+                                                              'deny': {}})
+            relevant_permissions = role_permissions.get(permission_type, {})
+            if _is_permission_matching(target_endpoint, target_method,
+                                       relevant_permissions):
+                return True
         return False
 
 
-def _load_permissions_from_file(permissions_file_path):
-    found_roles_permissions = {}
-    with open(permissions_file_path, 'r') as config_file:
-        yaml_conf = yaml.safe_load(config_file.read())
+def _is_permission_matching(target_endpoint, target_method,
+                            configured_permissions):
+    for endpoint, methods in configured_permissions.iteritems():
+        if _is_endpoint_matching(target_endpoint=target_endpoint,
+                                 configured_endpoint=endpoint):
+            if _is_method_matching(target_method=target_method,
+                                   configured_methods=methods):
+                # match!
+                return True
+    return False
 
-    for role, permissions in yaml_conf.iteritems():
-        known_permissions = found_roles_permissions.get(role, {})
-        for permission in permissions:
-            known_permissions.update(permission)
-        found_roles_permissions[role] = known_permissions
-    return found_roles_permissions
 
-
-def _is_method_permitted(target_method, permitted_methods):
-    if permitted_methods == [ALL_METHODS]:
+def _is_method_matching(target_method, configured_methods):
+    if configured_methods == [ANY]:
         return True
-    allowed_methods = [value.upper() for value in permitted_methods]
-    return target_method.upper() in allowed_methods
+    configured_methods = [value.upper() for value in configured_methods]
+    return target_method.upper() in configured_methods
 
 
-def _is_endpoint_permitted(target_endpoint, permitted_endpoint):
-    if permitted_endpoint.startswith('/'):
-        permitted_endpoint = permitted_endpoint[1:]
-    if permitted_endpoint.endswith('/'):
-        permitted_endpoint = permitted_endpoint[:-1]
-    pattern = permitted_endpoint.replace('/', '\/').replace('*', '.*') + '$'
+def _is_endpoint_matching(target_endpoint, configured_endpoint):
+    if configured_endpoint == ANY:
+        return True
+    if configured_endpoint.startswith('/'):
+        configured_endpoint = configured_endpoint[1:]
+    if configured_endpoint.endswith('/'):
+        configured_endpoint = configured_endpoint[:-1]
+    pattern = configured_endpoint.replace('/', '\/').replace('*', '.*') + '$'
     if re.match(pattern, target_endpoint):
         return True
     else:
-        # this is so that permission to "v2/blueprints/*" would approve
-        # requests to access "v2/blueprints"
-        if permitted_endpoint.endswith('/*'):
-            return _is_endpoint_permitted(target_endpoint,
-                                          permitted_endpoint[:-2])
+        # this is so that endpoint "v2/blueprints/*" would match
+        # requests to "v2/blueprints"
+        if configured_endpoint.endswith('/*'):
+            return _is_endpoint_matching(target_endpoint,
+                                         configured_endpoint[:-2])
         return False
