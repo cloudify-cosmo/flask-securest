@@ -23,16 +23,19 @@ from flask_securest import rest_security
 
 class FileRoleLoader(AbstractRoleLoader):
 
-    def get_roles(self, user_roles):
+    def __init__(self, user_roles):
+        self.user_roles = user_roles
+
+    def get_roles(self):
         # userstore = current_app.securest_userstore_driver
-        principals = rest_security.get_principals_list() or {}
-        with open(user_roles) as f:
-            user_roles = yaml.safe_load(f.read())
+        principals = rest_security.get_principals_list()
+        with open(self.user_roles) as f:
+            all_user_roles = yaml.safe_load(f.read())
         roles = set()
         for principal in principals:
-            if principal in user_roles:
-                roles = user_roles.get(principal).get('roles')
-                for role in roles or []:
-                    roles.add(role)
+            if principal in all_user_roles:
+                user_roles = all_user_roles.get(principal).get('roles')
+            for role in user_roles or []:
+                roles.add(role)
 
         return roles
