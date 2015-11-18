@@ -74,7 +74,7 @@ def _retrieve_credentials_from_request():
         pass
     else:
         api_key_parts = api_key.split(':')
-        if len(api_key_parts) < 2:
+        if len(api_key_parts) != 2:
             raise RuntimeError('Invalid {0} header. Header should contain'
                                ' exactly 2 items separated by ":" but '
                                'contains {1} item(s)'.
