@@ -103,6 +103,8 @@ class SecuREST(object):
     def register_authentication_provider(self, name, provider):
         """
         Registers the given authentication method.
+        :param name: A unique name for the authentication provider, required
+         for logging
         :param provider: appends the given authentication provider to the list
          of providers
         NOTE: Pay attention to the order of the registered providers!
