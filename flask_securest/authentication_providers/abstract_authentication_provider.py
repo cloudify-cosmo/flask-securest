@@ -15,6 +15,14 @@
 
 import abc
 
+from flask import request
+
+from itsdangerous import base64_decode
+
+AUTH_HEADER_NAME = 'Authorization'
+BASIC_AUTH_PREFIX = 'Basic'
+DEFAULT_PASSWORD_HASH = 'plaintext'
+
 
 class AbstractAuthenticationProvider(object):
     """
@@ -30,3 +38,29 @@ class AbstractAuthenticationProvider(object):
     @abc.abstractmethod
     def authenticate(self, userstore=None):
         raise NotImplementedError
+
+    def _retrieve_credentials_from_request(self):
+        auth_header = request.headers.get(AUTH_HEADER_NAME)
+        if not auth_header:
+            raise RuntimeError('Request authentication header "{0}" is empty '
+                               'or missing'.format(AUTH_HEADER_NAME))
+
+        auth_header = auth_header.replace(BASIC_AUTH_PREFIX + ' ', '', 1)
+        try:
+            api_key = base64_decode(auth_header)
+            # TODO parse better, with checks and all, this is shaky
+        except TypeError:
+            pass
+        else:
+            api_key_parts = api_key.split(':')
+            if len(api_key_parts) < 2:
+                raise RuntimeError('Invalid {0} header. Header should contain'
+                                   ' exactly 2 items separated by ":" but '
+                                   'contains {1} item(s)'.
+                                   format(AUTH_HEADER_NAME,
+                                          len(api_key_parts)))
+            request_user_id = api_key_parts[0]
+            request_password = api_key_parts[1]
+            if not request_user_id or not request_password:
+                raise RuntimeError('username or password not found on request')
+            return request_user_id, request_password

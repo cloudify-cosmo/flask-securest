@@ -27,9 +27,8 @@ class FileRoleLoader(AbstractRoleLoader):
         self.user_roles = user_roles
 
     def get_roles(self):
-        # userstore = current_app.securest_userstore_driver
         principals = rest_security.get_principals_list()
-        with open(self.user_roles) as f:
+        with open(self.user_roles, 'r') as f:
             all_user_roles = yaml.safe_load(f.read())
         roles = set()
         for principal in principals:
