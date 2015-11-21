@@ -42,7 +42,7 @@ setup(
         'Flask-RESTful>=0.2.5',
         'passlib>=1.6.2',
         'itsdangerous>=0.24',
-        'python-ldap==2.4.22'
+        'python-ldap==2.4.6'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
