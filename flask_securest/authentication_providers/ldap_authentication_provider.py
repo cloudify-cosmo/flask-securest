@@ -36,12 +36,10 @@ class LDAPAuthenticationProvider(AbstractAuthenticationProvider):
         # trying to bind with the given user and password
         try:
             conn.bind_s(username, password)
-            return User(
+            conn.unbind()
+            return dict(
                 username=username, password=password)
         except Exception as e:
             raise Exception(
                 'Failed to authenticate user {0}; {1}'
                 .format(username, str(e)))
-        finally:
-            # close the connection to the LDAP server
-            conn.unbind()
