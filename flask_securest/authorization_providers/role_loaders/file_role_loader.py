@@ -12,8 +12,6 @@
 #  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
-
-from flask import current_app
 import yaml
 
 from flask.ext.securest.authorization_providers.role_loaders. \
@@ -27,7 +25,7 @@ class FileRoleLoader(AbstractRoleLoader):
         self.user_roles = user_roles
 
     def get_roles(self):
-        principals = rest_security.get_principals_list()
+        principals = [rest_security.get_principals_list()]
         with open(self.user_roles, 'r') as f:
             all_users_roles = yaml.safe_load(f.read())
         roles = set()
