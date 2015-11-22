@@ -29,14 +29,14 @@ class FileRoleLoader(AbstractRoleLoader):
     def get_roles(self):
         principals = rest_security.get_principals_list()
         with open(self.user_roles, 'r') as f:
-            all_user_roles = yaml.safe_load(f.read())
+            all_users_roles = yaml.safe_load(f.read())
         roles = set()
-        user_roles = None
+        roles_from_file = None
         for principal in principals:
-            if principal in all_user_roles:
-                user_roles = all_user_roles.get(principal).get('roles')
-        if user_roles:
-            for role in user_roles or []:
-                roles.add(role)
+            if principal in all_users_roles:
+                roles_from_file = all_users_roles.get(principal).get('roles')
+            if roles_from_file:
+                for role in roles_from_file or []:
+                    roles.add(role)
 
         return roles
