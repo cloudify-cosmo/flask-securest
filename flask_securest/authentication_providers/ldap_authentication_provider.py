@@ -36,9 +36,10 @@ class LDAPAuthenticationProvider(AbstractAuthenticationProvider):
         # trying to bind with the given user and password
         try:
             conn.bind_s(username, password)
-            conn.unbind()
             return username
         except Exception as e:
             raise Exception(
                 'Failed to authenticate user {0}; {1}'
                 .format(username, str(e)))
+        finally:
+            conn.unbind_s()
