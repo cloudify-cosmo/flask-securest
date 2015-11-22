@@ -23,7 +23,7 @@ class LDAPAuthenticationProvider(AbstractAuthenticationProvider):
     def __init__(self, directory_url):
         self.directory_url = directory_url
 
-    def authenticate(self):
+    def authenticate(self, userstore=None):
         username, password = self._retrieve_credentials_from_request()
         # initialize connection to the LDAP server
         try:
