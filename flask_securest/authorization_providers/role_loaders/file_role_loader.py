@@ -31,9 +31,11 @@ class FileRoleLoader(AbstractRoleLoader):
         with open(self.user_roles, 'r') as f:
             all_user_roles = yaml.safe_load(f.read())
         roles = set()
+        user_roles = None
         for principal in principals:
             if principal in all_user_roles:
                 user_roles = all_user_roles.get(principal).get('roles')
+        if user_roles:
             for role in user_roles or []:
                 roles.add(role)
 
