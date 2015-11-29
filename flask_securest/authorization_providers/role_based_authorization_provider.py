@@ -83,10 +83,7 @@ def _is_method_matching(target_method, configured_methods):
 def _is_endpoint_matching(target_endpoint, configured_endpoint):
     if configured_endpoint == ANY:
         return True
-    if configured_endpoint.startswith('/'):
-        configured_endpoint = configured_endpoint[1:]
-    if configured_endpoint.endswith('/'):
-        configured_endpoint = configured_endpoint[:-1]
+
     pattern = configured_endpoint.replace('/', '\/').replace('*', '.*') + '$'
     if re.match(pattern, target_endpoint):
         return True

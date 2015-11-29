@@ -162,7 +162,7 @@ def auth_required(func):
         if _is_secured_request_context():
             try:
                 _set_security_context_value(SECURITY_CTX_ENDPOINT,
-                                            request.endpoint)
+                                            request.path)
                 _set_security_context_value(SECURITY_CTX_HTTP_METHOD,
                                             request.method)
                 authenticate()
