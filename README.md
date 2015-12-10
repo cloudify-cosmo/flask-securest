@@ -42,7 +42,7 @@ the client receives an "Unauthorized User" error.
 
 ### Authorization Provider
 After authenticating the request's user, authorization will take place, if an authorization provider is configured.
-An authorization provider is used to verify that the user has the permission to execute the requested method (e.g. *GET*)
+An authorization provider is used to verify that the user is permitted to execute the requested method (e.g. *GET*)
 on the requested endpoint.
 
 ## Writing your own userstore and authentication providers
