@@ -67,7 +67,8 @@ A valid authentication provider implementation is a:
 - Inherits from [AbstractAuthenticationProvider]
 (https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authentication_providers/abstract_authentication_provider.py)
 - Implements `authenticate(self, userstore=None)`, which returns a unique user identifier (e.g. username) if authentication was successful,
-and raises an exception if it failed.<br>
+and raises an exception if it failed.
+
 Exception messages should be informative but not expose confidential user or system details. For example: "Request authentication header
 is empty or missing" is OK, while "username jason attempted to use wrong password 123456" reveals too much information.
 
