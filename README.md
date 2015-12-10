@@ -49,8 +49,7 @@ on the requested endpoint.
 
 ### Custom Userstore Implementation
 
-A userstore driver is a class that loads user details and returns them as a user object.
-
+A userstore driver is a class that loads user details and returns them as a user object.<br>
 A valid userstore implementation is a:
 - Python class
 - Inherits from [AbstractUserstore](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/userstores/abstract_userstore.py)
