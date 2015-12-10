@@ -1,7 +1,8 @@
 # flask-secuREST
 REST Security implementation for REST Gateway
 
-This security framework integrates with [Flask-RESTful](https://flask-restful.readthedocs.org/en/0.3.2/) to secure REST services.
+This security framework integrates with [Flask-RESTful](https://flask-restful.readthedocs.org/en/0.3.2/) to secure REST
+services.
 
 
 ## Main Concepts
@@ -52,11 +53,13 @@ on the requested endpoint.
 A userstore driver is a class that loads user details and returns them as a user object.<br>
 A valid userstore implementation is a:
 - Python class
-- Inherits from [AbstractUserstore](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/userstores/abstract_userstore.py)
-- Implements `get_user(self, identifier)`, which returns a user object containing a dictionary of user details read from the userstore.
-    If a matching user is not found, `get_user` should return None.
+- Inherits from [AbstractUserstore]
+(https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/userstores/abstract_userstore.py)
+- Implements `get_user(self, identifier)`, which returns a user object containing a dictionary of user details read from
+ the userstore. If a matching user is not found, `get_user` should return None.
 
-An example for a userstore class based on dictionary - [SimpleUserstore](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/userstores/simple.py).
+An example for a userstore class based on dictionary - [SimpleUserstore]
+(https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/userstores/simple.py).
 
 ### Custom Authentication Provider Implementation
 
@@ -66,13 +69,14 @@ A valid authentication provider implementation is a:
 - Python class
 - Inherits from [AbstractAuthenticationProvider]
 (https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authentication_providers/abstract_authentication_provider.py)
-- Implements `authenticate(self, userstore=None)`, which returns a unique user identifier (e.g. username) if authentication was successful,
-and raises an exception if it failed.
+- Implements `authenticate(self, userstore=None)`, which returns a unique user identifier (e.g. username) if
+authentication was successful, and raises an exception if it failed.
 
 >
     Note:
-    Exception messages should be informative but not expose confidential user or system details. For example: "Request authentication header
-    is empty or missing" is OK, while "username jason attempted to use wrong password 123456" reveals too much information.
+    Exception messages should be informative but not expose confidential user or system details.
+    For example: "Request authentication header is empty or missing" is OK, while
+    "username jason attempted to use wrong password 123456" reveals too much information.
 
 An example authentication provider based on password authentication -
 [PasswordAuthenticator](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authentication_providers/password.py)
@@ -80,7 +84,8 @@ An example authentication provider based on password authentication -
 ### Custom Authorization Provider Implementation
 
 An authorization provider is a class that performs the authorization logic, after user authenticity has been verified.
-Authorization should evaluate if the acting user is allowed to execute the requested methods (e.g. POST) on the requested endpoint.<br>
+Authorization should evaluate if the acting user is allowed to execute the requested methods (e.g. POST) on the
+requested endpoint.<br>
 A valid authorization provider is a:
 
 - Python class
@@ -89,4 +94,5 @@ A valid authorization provider is a:
 - Implements `authorize(self)`, which returns true if the user is authorized, or false otherwise.
 
 An example role-based authorization provider -
-[RoleBasedAuthorizationProvider](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authorization_providers/role_based_authorization_provider.py)
+[RoleBasedAuthorizationProvider]
+(https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authorization_providers/role_based_authorization_provider.py)
