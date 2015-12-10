@@ -60,14 +60,14 @@ An example for a userstore class based on dictionary - [SimpleUserstore](https:/
 
 ### Custom Authentication Provider Implementation
 
-An Authentication Provider is a class that performs authentication.
+An Authentication Provider is a class that performs authentication.<br>
 A valid authentication provider implementation is a:
 
 - Python class
 - Inherits from [AbstractAuthenticationProvider]
 (https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authentication_providers/abstract_authentication_provider.py)
 - Implements `authenticate(self, userstore=None)`, which returns a unique user identifier (e.g. username) if authentication was successful,
-and raises an exception if it failed.
+and raises an exception if it failed.<br>
 Exception messages should be informative but not expose confidential user or system details. For example: "Request authentication header
 is empty or missing" is OK, while "username jason attempted to use wrong password 123456" reveals too much information.
 
@@ -78,7 +78,7 @@ An example authentication provider based on password authentication -
 ### Custom Authorization Provider Implementation
 
 An authorization provider is a class that performs the authorization logic, after user authenticity has been verified.
-Authorization should evaluate if the acting user is allowed to execute the requested methods (e.g. POST) on the requested endpoint.
+Authorization should evaluate if the acting user is allowed to execute the requested methods (e.g. POST) on the requested endpoint.<br>
 A valid authorization provider is a:
 
 - Python class
