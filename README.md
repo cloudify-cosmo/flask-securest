@@ -69,10 +69,11 @@ A valid authentication provider implementation is a:
 - Implements `authenticate(self, userstore=None)`, which returns a unique user identifier (e.g. username) if authentication was successful,
 and raises an exception if it failed.
 
-Exception messages should be informative but not expose confidential user or system details. For example: "Request authentication header
-is empty or missing" is OK, while "username jason attempted to use wrong password 123456" reveals too much information.
-
 >
+    Note:
+    Exception messages should be informative but not expose confidential user or system details. For example: "Request authentication header
+    is empty or missing" is OK, while "username jason attempted to use wrong password 123456" reveals too much information.
+
 An example authentication provider based on password authentication -
 [PasswordAuthenticator](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authentication_providers/password.py)
 
@@ -87,6 +88,5 @@ A valid authorization provider is a:
 (https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authorization_providers/abstract_authorization_provider.py)
 - Implements `authorize(self)`, which returns true if the user is authorized, or false otherwise.
 
->
 An example role-based authorization provider -
 [RoleBasedAuthorizationProvider](https://github.com/cloudify-cosmo/flask-securest/blob/0.7/flask_securest/authorization_providers/role_based_authorization_provider.py)
