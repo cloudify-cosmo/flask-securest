@@ -24,7 +24,7 @@ class SimpleRoleLoader(AbstractRoleLoader):
 
     def get_roles(self):
         userstore = current_app.securest_userstore_driver
-        principals = rest_security.get_principals_list() or {}
+        principals = rest_security.get_principals_list() or []
         roles = set()
         for principal in principals:
             for role in userstore.get_roles(principal) or []:

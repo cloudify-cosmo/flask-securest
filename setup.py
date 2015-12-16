@@ -24,7 +24,7 @@ def get_long_description():
 
 setup(
     name='Flask-SecuREST',
-    version='0.7',
+    version='0.8',
     url='https://github.com/cloudify-cosmo/flask-securest/',
     license='LICENSE',
     author='cosmo-admin',
@@ -42,6 +42,7 @@ setup(
         'Flask-RESTful>=0.2.5',
         'passlib>=1.6.2',
         'itsdangerous>=0.24',
+        'watchdog>=0.8.3',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
