@@ -12,7 +12,6 @@
 #  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
-
 import abc
 
 
@@ -24,7 +23,6 @@ class AbstractAuthenticationProvider(object):
     to return the username (or another uniquely identifying value)
     which will be logged
     """
-
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod

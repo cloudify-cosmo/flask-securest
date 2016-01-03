@@ -50,12 +50,12 @@ class SimpleUserstore(AbstractUserstore):
 
     def find_user(self, username):
         return next((entry for entry in self.users
-                    if entry['username'] == username),
+                     if entry['username'] == username),
                     None)
 
     def find_group(self, group_name):
         return next((entry for entry in self.groups
-                    if entry['name'] == group_name),
+                     if entry['name'] == group_name),
                     None)
 
     def find_principal(self, principal_name):
