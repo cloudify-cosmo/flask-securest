@@ -12,24 +12,54 @@
 #  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  * See the License for the specific language governing permissions and
 #  * limitations under the License.
-
 import re
+import logging
+import os
+
 import yaml
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from flask_securest import rest_security
 from flask_securest.authorization_providers.abstract_authorization_provider\
     import AbstractAuthorizationProvider
+from flask_securest.constants import FLASK_SECUREST_LOGGER_NAME
 
 
 ANY = '*'
 
 
-class RoleBasedAuthorizationProvider(AbstractAuthorizationProvider):
+class RoleBasedAuthorizationProvider(AbstractAuthorizationProvider,
+                                     FileSystemEventHandler):
 
     def __init__(self, role_loader, roles_config_file_path):
+        self.lgr = logging.getLogger(FLASK_SECUREST_LOGGER_NAME)
         self.role_loader = role_loader
-        with open(roles_config_file_path, 'r') as config_file:
-            self.permissions_by_roles = yaml.safe_load(config_file.read())
+        self.permissions_by_roles = None
+        self.roles_config_file_path = os.path.abspath(roles_config_file_path)
+        self.observer = Observer()
+        self.observer.schedule(self,
+                               path=os.path.dirname(
+                                   self.roles_config_file_path),
+                               recursive=False)
+        self.load_roles_config()
+        self.observer.start()
+
+    def load_roles_config(self):
+        try:
+            with open(self.roles_config_file_path, 'r') as config_file:
+                self.permissions_by_roles = yaml.safe_load(config_file.read())
+                self.lgr.info('Loading of roles configuration ended '
+                              'successfully')
+        except (yaml.parser.ParserError, IOError) as e:
+            err = 'Failed parsing {role_config_file} file. Error: {error}.' \
+                .format(role_config_file=self.roles_config_file_path, error=e)
+            self.lgr.warning(err)
+            raise ValueError(err)
+
+    def on_modified(self, event):
+        if os.path.abspath(event.src_path) == self.roles_config_file_path:
+            self.load_roles_config()
 
     def authorize(self):
         target_endpoint = rest_security.get_endpoint()

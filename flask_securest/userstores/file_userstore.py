@@ -20,27 +20,26 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from flask_securest.userstores import simple
-
-LOGGER_NAME = 'flask-securest'
+from flask_securest.constants import FLASK_SECUREST_LOGGER_NAME
 
 
 class FileUserstore(simple.SimpleUserstore, FileSystemEventHandler):
 
     def __init__(self, userstore_file_path):
-        self.lgr = logging.getLogger(name=LOGGER_NAME)
-        self.userstore_file_path = userstore_file_path
+        self.lgr = logging.getLogger(name=FLASK_SECUREST_LOGGER_NAME)
+        self.userstore_file_path = os.path.abspath(userstore_file_path)
         self.users = None
         self.groups = None
         self.observer = Observer()
         self.observer.schedule(self,
                                path=os.path.dirname(
-                                   os.path.abspath(userstore_file_path)),
+                                   self.userstore_file_path),
                                recursive=False)
         self.load_userstore()
         self.observer.start()
 
     def on_modified(self, event):
-        if event.src_path == self.userstore_file_path:
+        if os.path.abspath(event.src_path) == self.userstore_file_path:
             self.load_userstore()
 
     def load_userstore(self):
@@ -54,7 +53,7 @@ class FileUserstore(simple.SimpleUserstore, FileSystemEventHandler):
         try:
             with open(self.userstore_file_path) as f:
                 userstore = yaml.safe_load(f.read())
-        except (yaml.ParserError, IOError) as e:
+        except (yaml.parser.ParserError, IOError) as e:
             err = 'Failed parsing {userstore_file} file. Users and groups ' \
                   'will not be loaded. Error: {error}.'\
                   .format(userstore_file=self.userstore_file_path,
